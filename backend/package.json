@@ -20,11 +20,12 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "prisma:studio": "prisma studio"
-    ,"production:check": "ts-node scripts/production-check.ts"
-    ,"audit:verify": "ts-node scripts/verify-audit-chain.ts"
-    ,"audit:checkpoint:init": "ts-node scripts/init-audit-checkpoint.ts"
-    ,"deletion:process-due": "ts-node scripts/process-due-account-deletions.ts"
+    "prisma:studio": "prisma studio",
+    "production:check": "ts-node scripts/production-check.ts",
+    "audit:verify": "ts-node scripts/verify-audit-chain.ts",
+    "audit:checkpoint:init": "ts-node scripts/init-audit-checkpoint.ts",
+    "deletion:process-due": "ts-node scripts/process-due-account-deletions.ts",
+    "admin:provision": "ts-node scripts/provision-system-owner.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
