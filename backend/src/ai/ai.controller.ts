@@ -25,7 +25,7 @@ export class AiController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: BarrierDiagnosisRequest,
   ) {
-    return await this.aiService.diagnoseBarrier(body, user.id, user.privacyMode);
+    return await this.aiService.diagnoseBarrier(body, user.id);
   }
 
   @Post('suggest-mma')
@@ -36,7 +36,7 @@ export class AiController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: MmaGenerationRequest,
   ) {
-    return await this.aiService.suggestMma(body, user.id, user.privacyMode);
+    return await this.aiService.suggestMma(body, user.id);
   }
 
   @Post('suggest-restart')
@@ -47,7 +47,7 @@ export class AiController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: RestartGuidanceRequest,
   ) {
-    return await this.aiService.suggestRestart(body, user.id, user.privacyMode);
+    return await this.aiService.suggestRestart(body, user.id);
   }
 
   @Post('sharpen-nma')
@@ -58,6 +58,6 @@ export class AiController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: SharpenNmaRequest,
   ) {
-    return await this.aiService.sharpenNma(body, user.id, user.privacyMode);
+    return await this.aiService.sharpenNma(body, user.id);
   }
 }

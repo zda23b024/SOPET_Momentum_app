@@ -12,7 +12,8 @@ import { AuditService } from '../audit/audit.service';
 import { SecurityService } from '../security/security.service';
 import { CryptoUtil } from '../common/utils/crypto.util';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
-import { UserRoleType, PrivacyMode } from '@prisma/client';
+import { UserRoleType, PrivacyMode, AuthActionTokenType } from '@prisma/client';
+import { EmailService } from './email.service';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +28,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
     private readonly securityService: SecurityService,
+    private readonly emailService: EmailService,
   ) {
     this.initDemoMemoryUsers();
   }
@@ -101,28 +103,33 @@ export class AuthService {
 
     if (this.prisma.isConnected) {
       const userRole = await this.prisma.role.findUnique({ where: { name: UserRoleType.USER } });
-      createdUser = await this.prisma.user.create({
-        data: {
-          id: userId,
-          email,
-          passwordHash,
-          fullName: dto.fullName || 'SOPET Participant',
-          privacyMode,
-          isActive: true,
-          profile: {
-            create: {
-              displayName: dto.fullName || 'SOPET Participant',
+      try {
+        createdUser = await this.prisma.user.create({
+          data: {
+            id: userId,
+            email,
+            passwordHash,
+            fullName: dto.fullName || 'SOPET Participant',
+            defaultPrivacyMode: privacyMode,
+            isActive: true,
+            profile: {
+              create: {
+                displayName: dto.fullName || 'SOPET Participant',
+              },
+            },
+            userRoles: userRole ? { create: { roleId: userRole.id } } : undefined,
+            notificationPref: {
+              create: {},
             },
           },
-          userRoles: userRole ? { create: { roleId: userRole.id } } : undefined,
-          notificationPref: {
-            create: {},
+          include: {
+            userRoles: { include: { role: { include: { permissions: { include: { permission: true } } } } } },
           },
-        },
-        include: {
-          userRoles: { include: { role: { include: { permissions: { include: { permission: true } } } } } },
-        },
-      });
+        });
+      } catch (error: any) {
+        if (error?.code === 'P2002') throw new ConflictException('An account with this email already exists');
+        throw error;
+      }
     } else {
       createdUser = {
         id: userId,
@@ -148,17 +155,134 @@ export class AuthService {
       result: 'SUCCESS',
     });
 
-    const tokens = await this.generateTokens(createdUser, ipAddress, userAgent);
+    if (this.prisma.isConnected) {
+      const verificationToken = await this.issueActionToken(createdUser.id, AuthActionTokenType.EMAIL_VERIFICATION, 24 * 60 * 60 * 1000);
+      let verificationUrl: string | undefined;
+      let verificationEmailStatus: 'SENT' | 'FAILED' | 'LOCAL_LINK' = 'SENT';
+      try {
+        verificationUrl = await this.emailService.sendVerification(email, verificationToken);
+        if (verificationUrl) verificationEmailStatus = 'LOCAL_LINK';
+      } catch {
+        verificationEmailStatus = 'FAILED';
+        await this.recordVerificationDeliveryFailure(createdUser.id, email, 'registration');
+      }
+      const tokens = this.prisma.isConnected ? {} : await this.generateTokens(createdUser, ipAddress, userAgent);
+      return {
+        verificationRequired: true,
+        verificationPending: true,
+        verificationEmailStatus,
+        verificationUrl,
+        user: { id: createdUser.id, email: createdUser.email, fullName: createdUser.fullName, roles: createdUser.roles || ['USER'], privacyMode: createdUser.defaultPrivacyMode },
+        ...tokens,
+      };
+    }
+
+    const tokens = this.prisma.isConnected ? {} : await this.generateTokens(createdUser, ipAddress, userAgent);
     return {
+      verificationRequired: this.prisma.isConnected,
       user: {
         id: createdUser.id,
         email: createdUser.email,
         fullName: createdUser.fullName,
         roles: createdUser.roles || ['USER'],
-        privacyMode: createdUser.privacyMode,
+        privacyMode: createdUser.defaultPrivacyMode,
       },
       ...tokens,
     };
+  }
+
+  private async issueActionToken(userId: string, type: AuthActionTokenType, ttlMs: number) {
+    const rawToken = CryptoUtil.generateSecureToken(32);
+    await this.prisma.$transaction([
+      this.prisma.authActionToken.updateMany({ where: { userId, type, usedAt: null }, data: { usedAt: new Date() } }),
+      this.prisma.authActionToken.create({ data: { userId, type, tokenHash: CryptoUtil.hashToken(rawToken), expiresAt: new Date(Date.now() + ttlMs) } }),
+    ]);
+    return rawToken;
+  }
+
+  private limited(key: string, limit: number, windowMs: number) {
+    const blocked = this.securityService.isRateLimited(key, limit, windowMs);
+    this.securityService.recordFailedLogin(key);
+    return blocked;
+  }
+
+  async verifyEmail(rawToken: string, ipAddress?: string, userAgent?: string) {
+    if (!this.prisma.isConnected) throw new BadRequestException('DATABASE_UNAVAILABLE');
+    const token = await this.prisma.authActionToken.findUnique({ where: { tokenHash: CryptoUtil.hashToken(rawToken) } });
+    if (!token || token.type !== AuthActionTokenType.EMAIL_VERIFICATION || token.usedAt || token.expiresAt <= new Date()) throw new BadRequestException('Verification link is invalid or expired');
+    await this.prisma.$transaction(async tx => {
+      const consumed = await tx.authActionToken.updateMany({ where: { id: token.id, usedAt: null, expiresAt: { gt: new Date() } }, data: { usedAt: new Date() } });
+      if (!consumed.count) throw new BadRequestException('Verification link is invalid or expired');
+      await tx.user.update({ where: { id: token.userId }, data: { isEmailVerified: true } });
+    });
+    await this.auditService.log({ actorId: token.userId, action: 'EMAIL_VERIFIED', targetId: token.userId, targetType: 'USER', ipAddress, userAgent });
+    return { success: true, message: 'Email verified successfully' };
+  }
+
+  async resendVerification(emailInput: string, ipAddress?: string) {
+    const email = emailInput.toLowerCase().trim();
+    const key = `verify-resend:${CryptoUtil.hashToken(`${email}:${ipAddress ?? ''}`)}`;
+    if (!this.limited(key, 3, 15 * 60 * 1000) && this.prisma.isConnected) {
+      const user = await this.prisma.user.findUnique({ where: { email }, select: { id: true, email: true, isActive: true, isEmailVerified: true } });
+      if (user?.isActive && !user.isEmailVerified) {
+        const verificationToken = await this.issueActionToken(user.id, AuthActionTokenType.EMAIL_VERIFICATION, 24 * 60 * 60 * 1000);
+        try {
+          const verificationUrl = await this.emailService.sendVerification(user.email, verificationToken);
+          return { success: true, message: 'If the account can be verified, an email will be sent.', verificationPending: true, verificationEmailStatus: verificationUrl ? 'LOCAL_LINK' : 'SENT', verificationUrl };
+        } catch {
+          await this.recordVerificationDeliveryFailure(user.id, user.email, 'resend');
+          return { success: true, message: 'Your account is still pending verification. We could not deliver the email yet; please try again later.', verificationPending: true, verificationEmailStatus: 'FAILED' };
+        }
+      }
+    }
+    return { success: true, message: 'If the account can be verified, an email will be sent.' };
+  }
+
+  private async recordVerificationDeliveryFailure(userId: string, email: string, source: 'registration' | 'resend') {
+    try {
+      await this.auditService.log({
+        actorId: userId,
+        actorEmail: email,
+        action: 'EMAIL_VERIFICATION_DELIVERY_FAILED',
+        targetId: userId,
+        targetType: 'USER',
+        result: 'FAILURE',
+        reason: 'Email provider delivery failed',
+        details: { source },
+      });
+    } catch {
+      this.logger.warn('Could not persist email verification delivery failure audit event');
+    }
+  }
+
+  async forgotPassword(emailInput: string, ipAddress?: string) {
+    const email = emailInput.toLowerCase().trim();
+    const key = `password-forgot:${CryptoUtil.hashToken(`${email}:${ipAddress ?? ''}`)}`;
+    if (!this.limited(key, 3, 15 * 60 * 1000) && this.prisma.isConnected) {
+      const user = await this.prisma.user.findUnique({ where: { email }, select: { id: true, email: true, isActive: true } });
+      if (user?.isActive) await this.emailService.sendPasswordReset(user.email, await this.issueActionToken(user.id, AuthActionTokenType.PASSWORD_RESET, 30 * 60 * 1000));
+    }
+    return { success: true, message: 'If an eligible account exists, password reset instructions will be sent.' };
+  }
+
+  async resetPassword(rawToken: string, newPassword: string, ipAddress?: string, userAgent?: string) {
+    if (!this.prisma.isConnected) throw new BadRequestException('DATABASE_UNAVAILABLE');
+    const tokenHash = CryptoUtil.hashToken(rawToken);
+    if (this.limited(`password-reset:${tokenHash}:${ipAddress ?? ''}`, 5, 15 * 60 * 1000)) throw new BadRequestException('Reset request cannot be completed');
+    const token = await this.prisma.authActionToken.findUnique({ where: { tokenHash }, include: { user: { select: { email: true } } } });
+    if (!token || token.type !== AuthActionTokenType.PASSWORD_RESET || token.usedAt || token.expiresAt <= new Date()) throw new BadRequestException('Reset link is invalid or expired');
+    const passwordHash = await CryptoUtil.hashPassword(newPassword);
+    await this.prisma.$transaction(async tx => {
+      const consumed = await tx.authActionToken.updateMany({ where: { id: token.id, usedAt: null, expiresAt: { gt: new Date() } }, data: { usedAt: new Date() } });
+      if (!consumed.count) throw new BadRequestException('Reset link is invalid or expired');
+      await tx.user.update({ where: { id: token.userId }, data: { passwordHash } });
+      await tx.authActionToken.updateMany({ where: { userId: token.userId, type: AuthActionTokenType.PASSWORD_RESET, usedAt: null }, data: { usedAt: new Date() } });
+      await tx.session.updateMany({ where: { userId: token.userId, isRevoked: false }, data: { isRevoked: true } });
+    });
+    await this.securityService.recordSecurityEvent({ userId: token.userId, eventType: 'PASSWORD_RESET_COMPLETED', severity: 'MEDIUM', ipAddress, userAgent });
+    await this.auditService.log({ actorId: token.userId, action: 'PASSWORD_RESET_COMPLETED', targetId: token.userId, targetType: 'USER', ipAddress, userAgent });
+    await this.emailService.sendPasswordChanged(token.user.email);
+    return { success: true, message: 'Password reset successfully' };
   }
 
   async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
@@ -235,6 +359,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    if (this.prisma.isConnected && !user.isEmailVerified) {
+      throw new UnauthorizedException('Email verification is required before sign in');
+    }
+
     // MFA Verification if enabled
     if (user.mfaEnabled) {
       if (!dto.totpCode) {
@@ -243,9 +371,14 @@ export class AuthService {
           tempSessionId: user.id,
         };
       }
-      // Simple TOTP validator demo (accepts 6-digit number or test code)
-      if (dto.totpCode.length !== 6) {
+      const validTotp = dto.totpCode ? CryptoUtil.verifyTotp(user.mfaSecret, dto.totpCode) : false;
+      const recoveryHash = dto.recoveryCode ? CryptoUtil.hashToken(dto.recoveryCode) : undefined;
+      const validRecovery = recoveryHash && user.mfaRecoveryCodes.includes(recoveryHash);
+      if (!validTotp && !validRecovery) {
         throw new UnauthorizedException('Invalid MFA authentication code');
+      }
+      if (validRecovery && this.prisma.isConnected) {
+        await this.prisma.user.update({ where: { id: user.id }, data: { mfaRecoveryCodes: { set: user.mfaRecoveryCodes.filter((code: string) => code !== recoveryHash) } } });
       }
     }
 
@@ -271,7 +404,7 @@ export class AuthService {
         email: user.email,
         roles,
         permissions,
-        privacyMode: user.privacyMode,
+        privacyMode: user.defaultPrivacyMode,
       },
       ipAddress,
       userAgent,
@@ -295,17 +428,33 @@ export class AuthService {
         fullName: user.fullName,
         roles,
         permissions,
-        privacyMode: user.privacyMode,
+        privacyMode: user.defaultPrivacyMode,
       },
       ...tokens,
     };
+  }
+
+  async beginMfaEnrollment(userId: string) {
+    if (!this.prisma.isConnected) throw new BadRequestException('DATABASE_UNAVAILABLE');
+    const secret = CryptoUtil.generateTotpSecret();
+    await this.prisma.user.update({ where: { id: userId }, data: { mfaSecret: secret, mfaEnabled: false } });
+    return { secret, issuer: 'SOPET Momentum' };
+  }
+
+  async confirmMfaEnrollment(userId: string, code: string) {
+    if (!this.prisma.isConnected) throw new BadRequestException('DATABASE_UNAVAILABLE');
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.mfaSecret || !CryptoUtil.verifyTotp(user.mfaSecret, code)) throw new UnauthorizedException('Invalid MFA authentication code');
+    const recoveryCodes = Array.from({ length: 8 }, () => CryptoUtil.generateSecureToken(6));
+    await this.prisma.user.update({ where: { id: userId }, data: { mfaEnabled: true, mfaRecoveryCodes: recoveryCodes.map(codeValue => CryptoUtil.hashToken(codeValue)) } });
+    return { recoveryCodes };
   }
 
   async refreshToken(rawRefreshToken: string, ipAddress?: string, userAgent?: string) {
     let payload: any;
     try {
       payload = this.jwtService.verify(rawRefreshToken, {
-        secret: this.configService.get<string>('jwt.refreshSecret') || 'sopet_dev_jwt_refresh_secret_2026_super_secure',
+        secret: this.configService.getOrThrow<string>('jwt.refreshSecret'),
       });
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -379,10 +528,10 @@ export class AuthService {
           roles,
           permissions,
           sessionId: session.id,
-          privacyMode: session.user.privacyMode,
+          privacyMode: session.user.defaultPrivacyMode,
         },
         {
-          secret: this.configService.get<string>('jwt.accessSecret') || 'sopet_dev_jwt_access_secret_2026_super_secure',
+          secret: this.configService.getOrThrow<string>('jwt.accessSecret'),
           expiresIn: (this.configService.get<string>('jwt.accessTtl') || '15m') as any,
         },
       );
@@ -390,7 +539,7 @@ export class AuthService {
       const signedRefreshToken = this.jwtService.sign(
         { sub: session.user.id, sessionId: session.id },
         {
-          secret: this.configService.get<string>('jwt.refreshSecret') || 'sopet_dev_jwt_refresh_secret_2026_super_secure',
+          secret: this.configService.getOrThrow<string>('jwt.refreshSecret'),
           expiresIn: (this.configService.get<string>('jwt.refreshTtl') || '7d') as any,
         },
       );
@@ -410,14 +559,14 @@ export class AuthService {
           sessionId,
         },
         {
-          secret: this.configService.get<string>('jwt.accessSecret') || 'sopet_dev_jwt_access_secret_2026_super_secure',
+          secret: this.configService.getOrThrow<string>('jwt.accessSecret'),
           expiresIn: '15m',
         },
       );
       const signedRefreshToken = this.jwtService.sign(
         { sub: payload.sub, sessionId },
         {
-          secret: this.configService.get<string>('jwt.refreshSecret') || 'sopet_dev_jwt_refresh_secret_2026_super_secure',
+          secret: this.configService.getOrThrow<string>('jwt.refreshSecret'),
           expiresIn: '7d',
         },
       );
@@ -497,18 +646,18 @@ export class AuthService {
       roles: user.roles || ['USER'],
       permissions: user.permissions || [],
       sessionId,
-      privacyMode: user.privacyMode || 'STANDARD_PRIVATE',
+      privacyMode: user.defaultPrivacyMode || 'STANDARD_PRIVATE',
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('jwt.accessSecret') || 'sopet_dev_jwt_access_secret_2026_super_secure',
+      secret: this.configService.getOrThrow<string>('jwt.accessSecret'),
       expiresIn: (this.configService.get<string>('jwt.accessTtl') || '15m') as any,
     });
 
     const refreshToken = this.jwtService.sign(
       { sub: user.id, sessionId },
       {
-        secret: this.configService.get<string>('jwt.refreshSecret') || 'sopet_dev_jwt_refresh_secret_2026_super_secure',
+        secret: this.configService.getOrThrow<string>('jwt.refreshSecret'),
         expiresIn: (this.configService.get<string>('jwt.refreshTtl') || '7d') as any,
       },
     );

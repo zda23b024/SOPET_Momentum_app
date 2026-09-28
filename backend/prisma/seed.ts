@@ -4,6 +4,7 @@ import * as argon2 from 'argon2';
 const prisma = new PrismaClient();
 
 export async function runSeed(client: PrismaClient = prisma) {
+  if (process.env.NODE_ENV === 'production' && process.env.SEED_DEMO_USERS === 'true') throw new Error('Demo users are forbidden in production');
   console.log('Seeding SOPET Momentum database...');
 
   // 1. Seed Permissions
@@ -37,6 +38,8 @@ export async function runSeed(client: PrismaClient = prisma) {
     { code: 'prompt.manage', description: 'Manage AI prompt versions' },
     { code: 'admin.roles.manage', description: 'Manage user roles and permissions' },
     { code: 'admin.metrics.view', description: 'View administrative metrics' },
+    { code: 'goal.shared.request', description: 'Request access to a user-shared goal' },
+    { code: 'goal.shared.view', description: 'View a goal explicitly shared with this staff account' },
   ];
 
   for (const perm of permissionsList) {
@@ -64,7 +67,7 @@ export async function runSeed(client: PrismaClient = prisma) {
     {
       name: UserRoleType.SUPPORT_ADMIN,
       description: 'Technical Support Specialist. Can see operational metadata, cannot see private text.',
-      permissionCodes: ['account.metadata.view', 'security.sessions.view', 'knowledge.view', 'admin.metrics.view'],
+      permissionCodes: ['account.metadata.view', 'security.sessions.view', 'knowledge.view', 'admin.metrics.view', 'goal.shared.request', 'goal.shared.view'],
     },
     {
       name: UserRoleType.SECURITY_ADMIN,
@@ -94,7 +97,8 @@ export async function runSeed(client: PrismaClient = prisma) {
       description: 'Product Lead. Oversees prompt versions and operational readiness.',
       permissionCodes: [
         'prompt.view', 'prompt.manage', 'analytics.view', 'knowledge.view',
-        'taxonomy.view', 'intervention.view', 'admin.metrics.view'
+        'taxonomy.view', 'intervention.view', 'admin.metrics.view',
+        'goal.shared.request', 'goal.shared.view'
       ],
     },
     {
@@ -372,8 +376,16 @@ export async function runSeed(client: PrismaClient = prisma) {
     });
   }
 
-  // 6. Seed Demo Users with Argon2id Hashed Passwords
-  const defaultPassword = 'SopetPilot2026!';
+  // 6. Seed demo users only when explicitly enabled for a local environment.
+  if (process.env.SEED_DEMO_USERS !== 'true') {
+    console.log('Skipping demo users. Set SEED_DEMO_USERS=true for local/demo environments.');
+    return;
+  }
+
+  const defaultPassword = process.env.SEED_DEMO_PASSWORD;
+  if (!defaultPassword || defaultPassword.length < 12) {
+    throw new Error('SEED_DEMO_PASSWORD must be set to at least 12 characters when SEED_DEMO_USERS=true.');
+  }
   const hashedPassword = await argon2.hash(defaultPassword, {
     type: argon2.argon2id,
     memoryCost: 65536,
@@ -413,7 +425,7 @@ export async function runSeed(client: PrismaClient = prisma) {
       where: { email: u.email },
       update: {
         fullName: u.fullName,
-        privacyMode: u.privacyMode,
+        defaultPrivacyMode: u.privacyMode,
       },
       create: {
         email: u.email,
@@ -421,7 +433,7 @@ export async function runSeed(client: PrismaClient = prisma) {
         fullName: u.fullName,
         isActive: true,
         isEmailVerified: true,
-        privacyMode: u.privacyMode,
+        defaultPrivacyMode: u.privacyMode,
       },
     });
 

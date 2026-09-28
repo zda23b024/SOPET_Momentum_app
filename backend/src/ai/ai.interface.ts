@@ -1,4 +1,13 @@
-export interface BarrierDiagnosisRequest {
+export interface AiConsentContext {
+  goalId?: string;
+  privacyMode?: 'STANDARD_PRIVATE' | 'ENCRYPTED_PRIVATE' | 'HIGHLY_CONFIDENTIAL';
+  consent?: boolean;
+  purpose?: string;
+  fieldsShared?: string[];
+  consentInteractionId?: string;
+}
+
+export interface BarrierDiagnosisRequest extends AiConsentContext {
   actionTitle: string;
   actionDescription?: string;
   userExplanation: string;
@@ -24,7 +33,7 @@ export interface BarrierDiagnosisResponse {
   };
 }
 
-export interface MmaGenerationRequest {
+export interface MmaGenerationRequest extends AiConsentContext {
   actionTitle: string;
   barrierCategoryCode: string;
   userExplanation?: string;
@@ -38,7 +47,7 @@ export interface MmaGenerationResponse {
   parentActionPreservedNote: string;
 }
 
-export interface RestartGuidanceRequest {
+export interface RestartGuidanceRequest extends AiConsentContext {
   goalTitle: string;
   interruptionType: string;
   causeDescription: string;
@@ -52,7 +61,7 @@ export interface RestartGuidanceResponse {
   mindsetReframing: string;
 }
 
-export interface SharpenNmaRequest {
+export interface SharpenNmaRequest extends AiConsentContext {
   draftTitle: string;
   goalTitle: string;
 }

@@ -1,6 +1,6 @@
 export type GoalStatus = 'Active' | 'Paused' | 'Completed' | 'Draft';
 
-export type GoalCategory = 
+export type GoalCategory = 'Not specified'
   | 'Business & Entrepreneurship'
   | 'Professional Development'
   | 'Academic & Learning'
@@ -26,7 +26,7 @@ export type ActionStatus =
   | 'Interrupted'
   | 'Restarted';
 
-export type ActionRhythm = 'Daily' | 'Three times weekly' | 'Weekly' | 'Milestone-based';
+export type ActionRhythm = 'Not specified' | 'Daily' | 'Three times weekly' | 'Weekly' | 'Milestone-based';
 
 export interface MMA {
   id: string;
@@ -75,6 +75,7 @@ export interface Goal {
   statusHistory: StatusHistoryEntry[];
   isPrimary: boolean;
   kpi?: {
+    id?: string;
     name: string;
     currentValue: number;
     targetValue: number;
@@ -82,6 +83,9 @@ export interface Goal {
   };
   createdAt: string;
   nextReviewDate: string;
+  privacyMode?: 'STANDARD_PRIVATE' | 'ENCRYPTED_PRIVATE' | 'HIGHLY_CONFIDENTIAL';
+  ownerWrappedGoalKey?: import('./crypto/privacyTypes').EncryptedContentEnvelope;
+  encryptedPayload?: import('./crypto/privacyTypes').EncryptedContentEnvelope;
 }
 
 export type ReadinessOutput = 

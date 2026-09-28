@@ -1,39 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 
-export interface RegisterKeyDto {
-  keyId: string;
-  algorithm: string;
-  wrappedKeyData: string;
-  salt: string;
-  iterations: number;
-}
+import { SaveVaultMetadataDto } from './dto/vault.dto';
 
 @Injectable()
 export class PrivacyService {
-  private memoryKeyMetadata = new Map<string, RegisterKeyDto>();
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
   ) {}
 
-  async registerKeyMetadata(userId: string, dto: RegisterKeyDto) {
-    if (this.prisma.isConnected) {
-      await this.prisma.encryptionKeyMetadata.create({
-        data: {
-          userId,
-          keyId: dto.keyId,
-          algorithm: dto.algorithm || 'AES-256-GCM',
-          wrappedKeyData: dto.wrappedKeyData,
-          salt: dto.salt,
-          iterations: dto.iterations || 600000,
-        },
-      });
-    } else {
-      this.memoryKeyMetadata.set(userId, dto);
-    }
+  async registerKeyMetadata(userId: string, dto: SaveVaultMetadataDto) {
+    if (!this.prisma.isConnected) throw new Error('DATABASE_UNAVAILABLE');
+    await this.prisma.encryptionKeyMetadata.upsert({
+      where: { userId_keyVersion: { userId, keyVersion: dto.keyVersion } },
+      create: { userId, ...dto, recoveryConfigured: true },
+      update: { ...dto, recoveryConfigured: true },
+    });
 
     await this.auditService.log({
       actorId: userId,
@@ -45,13 +29,13 @@ export class PrivacyService {
   }
 
   async getKeyMetadata(userId: string) {
-    if (this.prisma.isConnected) {
+    if (!this.prisma.isConnected) throw new Error('DATABASE_UNAVAILABLE');
       const record = await this.prisma.encryptionKeyMetadata.findFirst({
         where: { userId },
         orderBy: { createdAt: 'desc' },
       });
-      return record;
-    }
-    return this.memoryKeyMetadata.get(userId) || null;
+      if (!record) return null;
+      const { userId: _owner, id: _id, createdAt: _createdAt, updatedAt: _updatedAt, recoveryConfigured: _configured, ...metadata } = record;
+      return metadata;
   }
 }

@@ -69,9 +69,9 @@ export const TodayFocusView: React.FC = () => {
     }
   };
 
-  const handleSaveReschedule = () => {
+  const handleSaveReschedule = async () => {
     if (activeNma && newDueDate) {
-      rescheduleAction(activeNma.id, newDueDate);
+      if (!await rescheduleAction(activeNma.id, newDueDate)) return;
       setIsRescheduling(false);
     }
   };
@@ -123,7 +123,7 @@ export const TodayFocusView: React.FC = () => {
 
           <div className="flex items-center gap-2 text-xs text-gray-200">
             <Clock className="w-3.5 h-3.5 text-[#C5A034]" />
-            <span>Due {activeNma?.dueDate || 'Today'}</span>
+            <span>Due {activeNma?.dueDate ? new Date(activeNma.dueDate).toLocaleDateString() : 'date not set'}</span>
           </div>
         </div>
 
@@ -185,19 +185,19 @@ export const TodayFocusView: React.FC = () => {
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-700">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#4B9C91]" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-teal-700" />
                     <span><strong>Specific:</strong> Concrete observable behavior</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#4B9C91]" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-teal-700" />
                     <span><strong>Feasible:</strong> Can actually be executed now</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#4B9C91]" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-teal-700" />
                     <span><strong>Meaningful:</strong> Advances the Goal directly</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#4B9C91]" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-teal-700" />
                     <span><strong>Sequential:</strong> Prerequisite to future actions</span>
                   </div>
                 </div>
@@ -206,9 +206,9 @@ export const TodayFocusView: React.FC = () => {
               {/* Reschedule inline drawer */}
               {isRescheduling && (
                 <div className="bg-amber-50/70 border border-amber-200 p-3.5 rounded-xl space-y-2 text-xs">
-                  <label className="font-semibold text-gray-800 block">Select new target date:</label>
+                  <label className="font-semibold text-gray-800 block" htmlFor="field-todayfocusview-newDueDate">Select new target date:</label>
                   <div className="flex items-center gap-2">
-                    <input
+                    <input id="field-todayfocusview-newDueDate"
                       type="date"
                       value={newDueDate}
                       onChange={e => setNewDueDate(e.target.value)}
@@ -352,7 +352,7 @@ export const TodayFocusView: React.FC = () => {
                   )}
 
                   <div className="flex items-center gap-3 text-gray-500 text-[11px]">
-                    <span>Rhythm: {act.rhythm}</span>
+                    {act.rhythm !== 'Not specified' && <span>Rhythm: {act.rhythm}</span>}
                     <span>·</span>
                     <span>Due: {act.dueDate}</span>
                   </div>

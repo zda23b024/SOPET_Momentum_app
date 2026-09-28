@@ -30,6 +30,44 @@ enum PrivacyMode {
   HIGHLY_CONFIDENTIAL
 }
 
+enum ContentEncoding {
+  PLAINTEXT
+  CLIENT_ENCRYPTED
+}
+
+enum PrivacyMigrationStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum GoalAccessPermission {
+  VIEW
+  COMMENT
+  ASSIST
+  EDIT
+}
+
+enum GoalAccessGrantStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum GoalAccessRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXPIRED
+}
+
+enum AuthActionTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
 model User {
   id                    String              @id @default(uuid())
   email                 String              @unique
@@ -47,7 +85,8 @@ model User {
   mfaRecoveryCodes      String[]            // Hashed recovery codes
 
   // Privacy Level
-  privacyMode           PrivacyMode         @default(STANDARD_PRIVATE)
+  defaultPrivacyMode    PrivacyMode         @default(STANDARD_PRIVATE)
+  privacyMigrationStatus PrivacyMigrationStatus @default(NOT_STARTED)
 
   // Timestamps
   createdAt             DateTime            @default(now())
@@ -68,6 +107,12 @@ model User {
   notificationPref      NotificationPreference?
   encryptionKeyMetadata EncryptionKeyMetadata[]
   deletionRequests      AccountDeletionRequest[]
+  ownedGoalGrants       GoalAccessGrant[]       @relation("GoalGrantOwner")
+  receivedGoalGrants    GoalAccessGrant[]       @relation("GoalGrantGrantee")
+  goalAccessRequests    GoalAccessRequest[]    @relation("GoalRequestRequester")
+  requestedGoalAccess   GoalAccessRequest[]    @relation("GoalRequestOwner")
+  sharingKeys           AdminSharingKey[]
+  authActionTokens      AuthActionToken[]
 
   @@index([email])
   @@index([createdAt])
@@ -170,12 +215,24 @@ model Goal {
   id                   String              @id @default(uuid())
   userId               String
   user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title                String
+  title                String?
   description          String?
   whyItMatters         String?             // Private developmental rationale
   status               GoalStatus          @default(ACTIVE)
   isPrimary            Boolean             @default(false)
   targetDate           DateTime?
+  privacyMode          PrivacyMode         @default(STANDARD_PRIVATE)
+  contentEncoding      ContentEncoding     @default(PLAINTEXT)
+  plaintextContent     Json?
+  encryptedPayload     Json?
+  contentSchemaVersion Int                 @default(1)
+  ownerWrappedGoalKey  Json?
+  goalKeyVersion       Int                 @default(1)
+  privacyMigrationStatus PrivacyMigrationStatus @default(NOT_STARTED)
+  privacyMigrationId   String?
+  privacyMigrationStartedAt DateTime?
+  privacyMigrationCompletedAt DateTime?
+  privacyMigrationError String?
   
   // Privacy / Client-Side Encryption flags
   isClientEncrypted    Boolean             @default(false)
@@ -192,10 +249,91 @@ model Goal {
   kpis                 KPI[]
   reviews              WeeklyReview[]
   interruptions        Interruption[]
+  accessRequests        GoalAccessRequest[]
   lessons              Lesson[]
+  accessGrants         GoalAccessGrant[]
 
   @@index([userId])
   @@index([status])
+}
+
+model GoalAccessGrant {
+  id                    String                @id @default(uuid())
+  goalId                String
+  goal                  Goal                 @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  ownerUserId           String
+  owner                 User                 @relation("GoalGrantOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  granteeUserId         String
+  grantee               User                 @relation("GoalGrantGrantee", fields: [granteeUserId], references: [id], onDelete: Cascade)
+  granteeRoleSnapshot   UserRoleType
+  permission            GoalAccessPermission @default(VIEW)
+  status                GoalAccessGrantStatus @default(PENDING)
+  supportPurpose        String?
+  createdAt             DateTime              @default(now())
+  grantedAt             DateTime?
+  expiresAt             DateTime?
+  revokedAt             DateTime?
+  revokedBy             String?
+  revocationRotationId  String?
+  revocationStartedAt   DateTime?
+  revocationError       String?
+  encryptedKeyEnvelope  String?
+  encryptionMetadata    Json?
+  lastViewedAt          DateTime?
+
+  @@index([goalId, status])
+  @@index([granteeUserId, status])
+  @@index([ownerUserId])
+  @@index([revocationRotationId])
+}
+
+model AuthActionToken {
+  id        String              @id @default(uuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      AuthActionTokenType
+  tokenHash String              @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([userId, type, usedAt])
+  @@index([expiresAt])
+}
+
+model GoalAccessRequest {
+  id             String                 @id @default(uuid())
+  goalId         String
+  goal           Goal                   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  requesterId    String
+  requester      User                   @relation("GoalRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  ownerUserId    String
+  owner          User                   @relation("GoalRequestOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  reason         String
+  status         GoalAccessRequestStatus @default(PENDING)
+  createdAt      DateTime               @default(now())
+  resolvedAt     DateTime?
+
+  @@index([goalId, status])
+  @@index([ownerUserId, status])
+  @@index([requesterId, status])
+}
+
+model AdminSharingKey {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  algorithm      String
+  publicKey      String
+  wrappedPrivateKey Json?
+  privateKeyMetadata Json?
+  keyVersion     Int      @default(1)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  rotatedAt      DateTime?
+
+  @@unique([userId, keyVersion])
+  @@index([userId, isActive])
 }
 
 model GoalStatusHistory {
@@ -214,8 +352,12 @@ model Milestone {
   id          String   @id @default(uuid())
   goalId      String
   goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  title       String
+  title       String?
   description String?
+  contentEncoding ContentEncoding @default(PLAINTEXT)
+  plaintextContent Json?
+  encryptedPayload Json?
+  contentSchemaVersion Int @default(1)
   orderIndex  Int      @default(0)
   isCompleted Boolean  @default(false)
   targetDate  DateTime?
@@ -250,12 +392,16 @@ model Action {
   milestoneId          String?
   milestone            Milestone?              @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
 
-  title                String
+  title                String?
   description          String?
   status               ActionStatus            @default(PENDING)
   isNMA                Boolean                 @default(false) // Current Next Meaningful Action
   scheduledDate        DateTime?
   estimatedMinutes     Int?
+  contentEncoding      ContentEncoding         @default(PLAINTEXT)
+  plaintextContent     Json?
+  encryptedPayload     Json?
+  contentSchemaVersion Int                     @default(1)
   
   // Privacy
   isClientEncrypted    Boolean                 @default(false)
@@ -302,6 +448,10 @@ model NMARecord {
   completedAt  DateTime?
   supersededAt DateTime?
   rationale    String?
+  contentEncoding ContentEncoding @default(PLAINTEXT)
+  plaintextContent Json?
+  encryptedPayload Json?
+  contentSchemaVersion Int @default(1)
 
   @@index([actionId])
 }
@@ -329,6 +479,10 @@ model ReadinessAssessment {
 
   provisionalVerdict     ReadinessVerdict
   notes                  String?
+  contentEncoding        ContentEncoding  @default(PLAINTEXT)
+  plaintextContent       Json?
+  encryptedPayload       Json?
+  contentSchemaVersion   Int              @default(1)
   assessedAt             DateTime         @default(now())
 
   @@index([actionId])
@@ -377,7 +531,11 @@ model Barrier {
   definition            BarrierDefinition?   @relation(fields: [categoryCode], references: [code])
   
   // Free-text diagnostic from user (Protected / Private)
-  userExplanation       String
+  userExplanation       String?
+  contentEncoding       ContentEncoding        @default(PLAINTEXT)
+  plaintextContent      Json?
+  encryptedPayload      Json?
+  contentSchemaVersion  Int                    @default(1)
   isClientEncrypted     Boolean              @default(false)
   ciphertextExplanation String?
   encryptionMetadata    String?
@@ -424,6 +582,10 @@ model ActionIntervention {
   interventionId  String
   intervention    Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
   outcomeNotes    String?
+  contentEncoding ContentEncoding @default(PLAINTEXT)
+  plaintextContent Json?
+  encryptedPayload Json?
+  contentSchemaVersion Int @default(1)
   isHelpful       Boolean?
   appliedAt       DateTime     @default(now())
 
@@ -436,7 +598,11 @@ model MMA {
   parentActionId      String
   parentAction        Action       @relation("ParentAction", fields: [parentActionId], references: [id], onDelete: Cascade)
   
-  title               String       // Concrete micro-action
+  title               String?      // Concrete micro-action
+  contentEncoding     ContentEncoding @default(PLAINTEXT)
+  plaintextContent    Json?
+  encryptedPayload    Json?
+  contentSchemaVersion Int @default(1)
   timeframeMinutes    Int          @default(15) // Smallest meaningful forward movement
   status              ActionStatus @default(PENDING) // PENDING, IN_PROGRESS, COMPLETED
   
@@ -477,7 +643,11 @@ model Interruption {
   goalId              String
   goal                Goal             @relation(fields: [goalId], references: [id], onDelete: Cascade)
   interruptionType    InterruptionType
-  causeDescription    String
+  causeDescription    String?
+  contentEncoding     ContentEncoding @default(PLAINTEXT)
+  plaintextContent    Json?
+  encryptedPayload    Json?
+  contentSchemaVersion Int @default(1)
   startedAt           DateTime         @default(now())
   restarts            Restart[]
 
@@ -491,12 +661,16 @@ model Restart {
   
   // 5 Restart Protocol Questions
   isStillMeaningful    Boolean          // 1. Is the goal still meaningful?
-  whatChanged          String           // 2. What changed in circumstances?
-  rootCause            String           // 3. What caused the interruption?
+  whatChanged          String?          // 2. What changed in circumstances?
+  rootCause            String?          // 3. What caused the interruption?
   isPlanRealistic      Boolean          // 4. Is the previous plan realistic?
   restartDecision      RestartDecision  // 5. Decision
   
-  restartActionTitle   String           // Immediate tangible restart action
+  restartActionTitle   String?          // Immediate tangible restart action
+  contentEncoding      ContentEncoding  @default(PLAINTEXT)
+  plaintextContent     Json?
+  encryptedPayload     Json?
+  contentSchemaVersion Int              @default(1)
   restartedAt          DateTime         @default(now())
   daysElapsed          Float?           // Restart velocity tracking
 
@@ -511,8 +685,12 @@ model KPI {
   id           String     @id @default(uuid())
   goalId       String
   goal         Goal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  name         String
-  unit         String
+  name         String?
+  unit         String?
+  contentEncoding ContentEncoding @default(PLAINTEXT)
+  plaintextContent Json?
+  encryptedPayload Json?
+  contentSchemaVersion Int @default(1)
   targetValue  Float
   currentValue Float      @default(0)
   createdAt    DateTime   @default(now())
@@ -529,6 +707,10 @@ model KPIValue {
   value      Float
   recordedAt DateTime @default(now())
   notes      String?
+  contentEncoding ContentEncoding @default(PLAINTEXT)
+  plaintextContent Json?
+  encryptedPayload Json?
+  contentSchemaVersion Int @default(1)
 
   @@index([kpiId])
   @@index([recordedAt])
@@ -547,16 +729,16 @@ model WeeklyReview {
   weekEndingDate               DateTime
   
   // 5 Standard Reflection Questions (Private content)
-  meaningfulProgress           String
-  actionsThatMattered          String
-  whatGotInTheWay              String
+  meaningfulProgress           String?
+  actionsThatMattered          String?
+  whatGotInTheWay              String?
   interventionsThatHelped      String?
   interventionsThatDidNotHelp  String?
   interruptionExperienced      Boolean      @default(false)
   restartDetails               String?
 
   // Outcomes
-  nextNmaTitle                 String
+  nextNmaTitle                 String?
   aiSummaryDraft               String?
   aiSummaryConfirmed           Boolean      @default(false)
   
@@ -564,6 +746,10 @@ model WeeklyReview {
   isClientEncrypted            Boolean      @default(false)
   ciphertextPayload            String?
   encryptionMetadata           String?
+  contentEncoding              ContentEncoding @default(PLAINTEXT)
+  plaintextContent             Json?
+  encryptedPayload             Json?
+  contentSchemaVersion         Int @default(1)
 
   createdAt                    DateTime     @default(now())
   updatedAt                    DateTime     @updatedAt
@@ -585,8 +771,12 @@ model Lesson {
   weeklyReviewId     String?
   weeklyReview       WeeklyReview? @relation(fields: [weeklyReviewId], references: [id], onDelete: SetNull)
 
-  lessonText         String        // Personal learning from execution rhythm
-  adjustmentText     String        // Concrete adjustment
+  lessonText         String?       // Personal learning from execution rhythm
+  adjustmentText     String?       // Concrete adjustment
+  contentEncoding    ContentEncoding @default(PLAINTEXT)
+  plaintextContent   Json?
+  encryptedPayload   Json?
+  contentSchemaVersion Int @default(1)
   relatedBarrierCode BarrierCategoryCode?
 
   createdAt          DateTime      @default(now())
@@ -599,7 +789,11 @@ model Adjustment {
   id             String       @id @default(uuid())
   weeklyReviewId String
   weeklyReview   WeeklyReview @relation(fields: [weeklyReviewId], references: [id], onDelete: Cascade)
-  description    String
+  description    String?
+  contentEncoding ContentEncoding @default(PLAINTEXT)
+  plaintextContent Json?
+  encryptedPayload Json?
+  contentSchemaVersion Int @default(1)
   implemented    Boolean      @default(false)
   createdAt      DateTime     @default(now())
 
@@ -651,7 +845,10 @@ model AIInteractionMetadata {
   provider        String   @default("gemini")
   modelName       String
   promptVersion   String
-  userConsentGiven Boolean @default(true) // Explicit consent check
+  userId          String?
+  goalId          String?
+  userConsentGiven Boolean @default(false) // Explicit consent is per interaction
+  fieldsShared    String[]
   sanitizedTokens Int?
   latencyMs       Int?
   wasAccepted     Boolean?
@@ -662,14 +859,30 @@ model AIInteractionMetadata {
   @@index([createdAt])
 }
 
+model AIConsentReceipt {
+  id           String   @id
+  userId       String
+  goalId       String?
+  purpose      String
+  fieldsShared String[]
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
 // ==========================================
 // 9. AUDIT, SECURITY, PRIVACY & ANALYTICS
 // ==========================================
 
 model AuditLog {
   id             String   @id @default(uuid())
+  /// Immutable actor identifier captured at event creation. This is deliberately
+  /// not a foreign key: deleting a user must not alter a signed audit record.
   actorId        String?
-  actor          User?    @relation("UserAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+  /// Optional operational lookup only. PostgreSQL may null this reference when
+  /// an account is deleted without changing the immutable actorId snapshot.
+  actorUserId    String?
+  actor          User?    @relation("UserAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
   actorEmail     String?
   action         String   // e.g. "USER_LOGIN", "ROLE_ASSIGNED", "ACCOUNT_SUSPENDED"
   targetId       String?
@@ -679,11 +892,33 @@ model AuditLog {
   userAgent      String?
   result         String   @default("SUCCESS") // SUCCESS, FAILURE
   reason         String?
+  previousHash   String?
+  entryHash      String?
+  legacyCheckpointId String?
+  hashVersion    Int      @default(2)
   createdAt      DateTime @default(now())
 
   @@index([action])
   @@index([actorId])
+  @@index([actorUserId])
   @@index([createdAt])
+  @@index([entryHash])
+  @@index([legacyCheckpointId])
+}
+
+/// A one-time, append-only cryptographic boundary for audit records created
+/// before hash chaining was introduced. Legacy AuditLog rows are never changed.
+model AuditCheckpoint {
+  id                String   @id @default(uuid())
+  cutoverTimestamp  DateTime
+  legacyRecordCount Int
+  lastLegacyAuditId String?
+  legacyDigest      String
+  algorithm         String
+  version           Int
+  createdAt         DateTime @default(now())
+
+  @@index([cutoverTimestamp])
 }
 
 model AnalyticsEvent {
@@ -714,14 +949,25 @@ model EncryptionKeyMetadata {
   id             String   @id @default(uuid())
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  keyId          String   // Unique client key fingerprint
-  algorithm      String   @default("AES-256-GCM")
-  wrappedKeyData String   // User-wrapped key payload
-  salt           String
-  iterations     Int      @default(600000) // PBKDF2 iterations
-  createdAt      DateTime @default(now())
+  keyId                    String   // Unique client key fingerprint
+  keyVersion               Int      @default(1)
+  algorithm                String   @default("AES-256-GCM")
+  wrappingAlgorithm        String   @default("AES-KW")
+  wrappedKeyData           String   // Passphrase-wrapped UDEK
+  salt                     String
+  iterations               Int      @default(600000) // PBKDF2 iterations
+  kdf                      String   @default("PBKDF2")
+  hash                     String   @default("SHA-256")
+  metadataVersion          Int      @default(1)
+  recoveryWrappedKeyData   String
+  recoverySalt             String
+  recoveryIterations       Int      @default(600000)
+  recoveryConfigured       Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
   @@index([userId])
+  @@unique([userId, keyVersion])
 }
 
 model AccountDeletionRequest {

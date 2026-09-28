@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { AcifCategoryCode } from '../../types';
-import { ContextualAiService } from '../../services/contextualAi';
+import { ContextualAiService, AiBarrierSuggestion } from '../../services/contextualAi';
+import { isDemoMode } from '../../services/api';
+import { sendAiRequest } from '../../services/aiConsent';
+import { useAiConsent } from '../../context/ai/AiConsentContext';
 import {
   X,
   AlertOctagon,
@@ -21,18 +24,21 @@ export const BarrierReviewModal: React.FC = () => {
     barrierTargetActionId,
     closeBarrierReview,
     submitBarrierReview,
-    actions,
+    actions, goals,
     acifCategories,
     openMmaModal,
     showToast
   } = useApp();
 
   const action = actions.find(a => a.id === barrierTargetActionId);
+  const goal = goals.find(item => item.id === action?.goalId);
+  const requestConsent = useAiConsent();
 
   // Flow step: 1 = Free text description, 2 = AI Suggestion review, 3 = Category picker (if Choose Another / Edit), 4 = Intervention Card
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [userExplanation, setUserExplanation] = useState('');
-  const [aiSuggestion, setAiSuggestion] = useState<ReturnType<typeof ContextualAiService.suggestBarrier> | null>(null);
+  const [aiSuggestion, setAiSuggestion] = useState<AiBarrierSuggestion | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiStatus, setAiStatus] = useState<'accepted' | 'edited' | 'rejected'>('accepted');
   const [selectedCategory, setSelectedCategory] = useState<AcifCategoryCode>('overwhelm');
   const [secondaryCategory, setSecondaryCategory] = useState<AcifCategoryCode | undefined>(undefined);
@@ -41,14 +47,32 @@ export const BarrierReviewModal: React.FC = () => {
   if (!isBarrierReviewOpen || !action) return null;
 
   // Step 1 -> Step 2: Analyze free-text with contextual AI
-  const handleAnalyzeExplanation = (e: React.FormEvent) => {
+  const handleAnalyzeExplanation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userExplanation.trim()) return;
 
-    const suggestion = ContextualAiService.suggestBarrier(userExplanation, action.title);
-    setAiSuggestion(suggestion);
-    setSelectedCategory(suggestion.categoryCode);
-    setStep(2);
+    const privacyMode = goal?.privacyMode ?? 'STANDARD_PRIVATE';
+    try {
+      setIsAnalyzing(true);
+      let suggestion: AiBarrierSuggestion | null;
+      if (isDemoMode) {
+        if (privacyMode === 'HIGHLY_CONFIDENTIAL') {
+          const grant = await requestConsent({ purpose: 'Suggest an ACIF barrier category', fieldsShared: ['actionTitle', 'userExplanation'], fieldsNotShared: ['Goal description', 'Why this matters', 'Milestones', 'Other actions', 'Privacy Vault keys'], provider: 'Local demo engine', model: 'Deterministic SOPET rules' });
+          if (!grant) return;
+        }
+        suggestion = ContextualAiService.suggestBarrier(userExplanation, action.title);
+      } else {
+        const response = await sendAiRequest<{ suggestedCategoryCode: string; suggestedCategoryName: string; confidenceScore: number; diagnosticReasoning: string }>({
+          path: '/ai/diagnose-barrier', privacyMode, requestConsent,
+          details: { purpose: 'Suggest an ACIF barrier category', fieldsShared: ['actionTitle', 'userExplanation'], fieldsNotShared: ['Goal description', 'Why this matters', 'Milestones', 'Other actions', 'Privacy Vault keys'], provider: 'Google Gemini', model: 'gemini-2.5-flash' },
+          payload: { goalId: action.goalId, actionTitle: action.title, userExplanation },
+        });
+        if (!response) return;
+        suggestion = { categoryCode: response.suggestedCategoryCode.toLowerCase() as AcifCategoryCode, categoryName: response.suggestedCategoryName, confidence: response.confidenceScore >= .9 ? 'High' : 'Moderate', explanation: response.diagnosticReasoning, matchedKeywords: [] };
+      }
+      setAiSuggestion(suggestion); setSelectedCategory(suggestion.categoryCode); setStep(2);
+    } catch { showToast('AI analysis could not be completed.', 'warning'); }
+    finally { setIsAnalyzing(false); }
   };
 
   // Step 2: Accept AI suggestion
@@ -78,14 +102,15 @@ export const BarrierReviewModal: React.FC = () => {
   };
 
   // Final Action: Complete Barrier Review & apply intervention
-  const handleFinishReview = (applyMMA: boolean = false) => {
-    submitBarrierReview(
+  const handleFinishReview = async (applyMMA: boolean = false) => {
+    const saved = await submitBarrierReview(
       action.id,
       userExplanation,
       selectedCategory,
       aiStatus,
       secondaryCategory
     );
+    if (!saved) return;
     closeBarrierReview();
 
     if (applyMMA || selectedCategory === 'overwhelm') {
@@ -132,13 +157,13 @@ export const BarrierReviewModal: React.FC = () => {
           {step === 1 && (
             <form onSubmit={handleAnalyzeExplanation} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1">
+                <label className="block text-sm font-semibold text-gray-800 mb-1" htmlFor="field-barrierreviewmodal-userExplanation">
                   What prevented this meaningful Action from happening?
                 </label>
                 <p className="text-xs text-gray-600 mb-3 leading-relaxed">
                   Describe what happened freely in your own words. We will not force you into a premature category.
                 </p>
-                <textarea
+                <textarea id="field-barrierreviewmodal-userExplanation"
                   rows={4}
                   required
                   value={userExplanation}
@@ -149,7 +174,7 @@ export const BarrierReviewModal: React.FC = () => {
               </div>
 
               {/* Sample quick-fill prompt for demo evaluator */}
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+              {isDemoMode && <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
                 <span className="text-[11px] font-semibold text-gray-700 block mb-1">
                   Demo Quick Fill:
                 </span>
@@ -177,15 +202,15 @@ export const BarrierReviewModal: React.FC = () => {
                     "Missing equipment catalog (Resource Gap)"
                   </button>
                 </div>
-              </div>
+              </div>}
 
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  disabled={!userExplanation.trim()}
+                  disabled={!userExplanation.trim() || isAnalyzing}
                   className="flex items-center gap-2 bg-[#155A8A] hover:bg-[#0E3C5B] disabled:opacity-50 text-white text-xs sm:text-sm font-semibold px-5 py-2.5 rounded-xl transition shadow-xs"
                 >
-                  <span>Explore Possible Barrier</span>
+                  <span>{isAnalyzing ? 'Analyzing...' : 'Explore Possible Barrier'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>

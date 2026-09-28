@@ -46,6 +46,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.error(`Unhandled error [${requestId}]: ${(exception as any)?.message || exception}`);
     }
 
+    const retryAfter = (exception as any)?.retryAfter;
+    if (status === HttpStatus.TOO_MANY_REQUESTS && retryAfter) response.setHeader('Retry-After', String(retryAfter));
     response.status(status).json({
       success: false,
       error: {

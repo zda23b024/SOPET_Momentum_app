@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { InterventionsService } from './interventions.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { ApplyInterventionDto } from './dto/interventions.dto';
 
 @ApiTags('Interventions')
 @ApiBearerAuth()
@@ -22,14 +23,14 @@ export class InterventionsController {
   async linkIntervention(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') actionId: string,
-    @Body() body: { interventionCode: string; barrierId?: string; outcomeNotes?: string },
+    @Body() body: ApplyInterventionDto,
   ) {
     return await this.interventionsService.linkInterventionToAction(
       user.id,
       actionId,
       body.interventionCode,
       body.barrierId,
-      body.outcomeNotes,
+      body,
     );
   }
 }

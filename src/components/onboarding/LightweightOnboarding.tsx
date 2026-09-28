@@ -11,13 +11,13 @@ export const LightweightOnboarding: React.FC = () => {
   const handleFinishOnboarding = () => {
     closeOnboarding();
     setIsCreateGoalOpen(true);
-    showToast('Onboarding complete! Let us define your first Meaningful Goal.', 'success');
+    showToast('Start by defining your first meaningful Goal.', 'info');
   };
 
   const handleSkip = () => {
     closeOnboarding();
     setActiveView('today');
-    showToast('Skipped onboarding. Active demo loaded.', 'info');
+    showToast('You can resume setup from Today at any time.', 'info');
   };
 
   return (
@@ -73,7 +73,7 @@ export const LightweightOnboarding: React.FC = () => {
 
           {step === 3 && (
             <div className="space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#4B9C91] flex items-center justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-teal-700 flex items-center justify-center">
                 <Check className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold text-[#0E3C5B]">Ethical Clarity &amp; Privacy</h3>

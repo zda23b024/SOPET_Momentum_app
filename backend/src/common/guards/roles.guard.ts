@@ -27,11 +27,6 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied: unauthenticated user');
     }
 
-    // SYSTEM_OWNER has global break-glass bypass (audited)
-    if (user.roles?.includes('SYSTEM_OWNER')) {
-      return true;
-    }
-
     // Role check
     if (requiredRoles && requiredRoles.length > 0) {
       const hasRole = requiredRoles.some((role) => user.roles?.includes(role));

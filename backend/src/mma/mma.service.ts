@@ -3,7 +3,8 @@ import { PrismaService } from '../database/prisma.service';
 import { ActionsService } from '../actions/actions.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateMmaDto } from './dto/mma.dto';
-import { ActionStatus } from '@prisma/client';
+import { ActionStatus, ContentEncoding, Prisma } from '@prisma/client';
+import { PRIVATE_FIELDS, validateEncryptedContent } from '../common/privacy/content-envelope';
 
 @Injectable()
 export class MmaService {
@@ -18,6 +19,8 @@ export class MmaService {
   async createMma(userId: string, parentActionId: string, dto: CreateMmaDto) {
     // Validate parent action ownership
     const parentAction = await this.actionsService.getActionById(userId, parentActionId);
+    if (parentAction.goal?.privacyMode !== 'STANDARD_PRIVATE' && dto.contentEncoding !== ContentEncoding.CLIENT_ENCRYPTED) throw new ForbiddenException({ code: 'PRIVACY_MODE_MISMATCH' });
+    validateEncryptedContent(dto as unknown as Record<string, unknown>, PRIVATE_FIELDS.mma);
 
     const mmaId = 'mma-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
 
@@ -26,7 +29,9 @@ export class MmaService {
         data: {
           id: mmaId,
           parentActionId,
-          title: dto.title,
+          title: dto.contentEncoding === ContentEncoding.CLIENT_ENCRYPTED ? null : dto.title,
+          contentEncoding: dto.contentEncoding ?? ContentEncoding.PLAINTEXT,
+          encryptedPayload: dto.encryptedPayload as Prisma.InputJsonValue,
           timeframeMinutes: dto.timeframeMinutes || 15,
           status: ActionStatus.PENDING,
         },
@@ -122,6 +127,14 @@ export class MmaService {
     mma.resumedParentAction = true;
     this.memoryMmas.set(mmaId, mma);
     return mma;
+  }
+
+  async startMma(userId: string, mmaId: string) {
+    if (!this.prisma.isConnected) throw new NotFoundException('DATABASE_UNAVAILABLE');
+    const mma = await this.prisma.mMA.findUnique({ where: { id: mmaId }, include: { parentAction: true } });
+    if (!mma) throw new NotFoundException('MMA not found');
+    if (mma.parentAction.userId !== userId) throw new ForbiddenException('Access denied: You do not own this action');
+    return this.prisma.mMA.update({ where: { id: mmaId }, data: { status: ActionStatus.IN_PROGRESS, startedAt: new Date() } });
   }
 
   async getMmasForAction(userId: string, parentActionId: string) {

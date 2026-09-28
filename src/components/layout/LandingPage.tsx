@@ -1,5 +1,7 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
+import { isDemoMode } from '../../services/api';
+import { BrandLogo } from '../common/BrandLogo';
 import {
   ArrowRight,
   Target,
@@ -26,18 +28,19 @@ export const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#EAF4FB] text-[#1E293B] flex flex-col justify-between">
       {/* Top Banner Disclaimer */}
-      <div className="bg-[#0E3C5B] text-gray-200 text-xs py-2 px-4 text-center border-b border-[#155A8A]">
+      {isDemoMode && <div className="bg-[#0E3C5B] text-gray-200 text-xs py-2 px-4 text-center border-b border-[#155A8A]">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2">
           <ShieldCheck className="w-4 h-4 text-[#C5A034] shrink-0" />
           <span>
             <strong>Authoritative UX Prototype:</strong> Validating the SOPET Momentum Developmental Framework for ACoS EduTech &amp; Consultancy.
           </span>
         </div>
-      </div>
+      </div>}
 
       {/* Main Hero Container */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 flex-1 flex flex-col justify-center">
         <div className="text-center max-w-3xl mx-auto space-y-6">
+          <BrandLogo className="h-28 w-auto mx-auto" />
           {/* Tagline */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#155A8A]/20 shadow-xs text-xs font-semibold text-[#0E3C5B]">
             <span className="w-2 h-2 rounded-full bg-[#4B9C91] animate-pulse"></span>
@@ -56,19 +59,19 @@ export const LandingPage: React.FC = () => {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <button
+            {isDemoMode && <button
               onClick={handleQuickDemoEnter}
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#155A8A] hover:bg-[#0E3C5B] text-white px-6 py-3.5 rounded-xl font-semibold text-base shadow-sm transition transform active:scale-98"
             >
               <span>Explore Interactive Demo (Amina)</span>
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </button>}
 
             <button
               onClick={() => openAuthModal('signup')}
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-[#0E3C5B] border border-gray-300 px-6 py-3.5 rounded-xl font-semibold text-base transition"
             >
-              Get Started (New User)
+              Create Account
             </button>
 
             <button
@@ -79,9 +82,9 @@ export const LandingPage: React.FC = () => {
             </button>
           </div>
 
-          <p className="text-xs text-gray-500 max-w-md mx-auto">
+          {isDemoMode && <p className="text-xs text-gray-500 max-w-md mx-auto">
             No real credentials required. Click <strong>Explore Interactive Demo</strong> to jump directly into the active pilot scenario.
-          </p>
+          </p>}
         </div>
 
         {/* Primary Momentum Loops Visual Diagram */}
@@ -137,7 +140,7 @@ export const LandingPage: React.FC = () => {
                   <span className="text-[10px] text-gray-500">Targeted support</span>
                 </div>
                 <div className="bg-white border border-[#4B9C91] p-2.5 rounded-lg">
-                  <span className="font-bold text-[#4B9C91] block">MMA / Response</span>
+                  <span className="font-bold text-teal-700 block">MMA / Response</span>
                   <span className="text-[10px] text-gray-500">Smallest meaningful step</span>
                 </div>
                 <div className="bg-white border border-[#0E3C5B] p-2.5 rounded-lg">
@@ -162,7 +165,7 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <div className="bg-white p-5 rounded-xl border border-gray-200">
-            <div className="w-9 h-9 rounded-lg bg-emerald-50 text-[#4B9C91] flex items-center justify-center font-bold mb-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 text-teal-700 flex items-center justify-center font-bold mb-3">
               2
             </div>
             <h3 className="font-bold text-[#0E3C5B] text-base mb-1">Non-Judgmental Diagnosis</h3>

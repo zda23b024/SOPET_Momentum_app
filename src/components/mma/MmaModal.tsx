@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ContextualAiService } from '../../services/contextualAi';
+import { isDemoMode } from '../../services/api';
+import { sendAiRequest } from '../../services/aiConsent';
+import { useAiConsent } from '../../context/ai/AiConsentContext';
 import {
   X,
   Sparkles,
@@ -18,7 +21,7 @@ export const MmaModal: React.FC = () => {
     isMmaModalOpen,
     mmaTargetActionId,
     closeMmaModal,
-    actions,
+    actions, goals,
     createMMA,
     startMMA,
     completeMMA,
@@ -26,14 +29,13 @@ export const MmaModal: React.FC = () => {
   } = useApp();
 
   const parentAction = actions.find(a => a.id === mmaTargetActionId);
+  const goal = goals.find(item => item.id === parentAction?.goalId);
+  const requestConsent = useAiConsent();
 
   // Suggested MMA
-  const defaultMma = parentAction ? ContextualAiService.suggestMma(parentAction.title) : null;
-  const [mmaTitle, setMmaTitle] = useState(defaultMma?.title || 'Draft the problem statement');
-  const [whyThisHelps, setWhyThisHelps] = useState(
-    defaultMma?.whyThisHelps ||
-      'Writing just the 2-paragraph problem statement breaks the initial blank-page friction without taking on the entire document.'
-  );
+  const [mmaTitle, setMmaTitle] = useState('');
+  const [whyThisHelps, setWhyThisHelps] = useState('');
+  const [isSuggesting, setIsSuggesting] = useState(false);
 
   if (!isMmaModalOpen || !parentAction) return null;
 
@@ -43,6 +45,28 @@ export const MmaModal: React.FC = () => {
     e.preventDefault();
     if (!mmaTitle.trim()) return;
     createMMA(parentAction.id, mmaTitle, whyThisHelps);
+  };
+
+  const handleSuggest = async () => {
+    const privacyMode = goal?.privacyMode ?? 'STANDARD_PRIVATE';
+    try {
+      setIsSuggesting(true);
+      if (isDemoMode) {
+        if (privacyMode === 'HIGHLY_CONFIDENTIAL') {
+          const grant = await requestConsent({ purpose: 'Suggest a Minimum Meaningful Action', fieldsShared: ['actionTitle'], fieldsNotShared: ['Goal description', 'Why this matters', 'Barrier notes', 'Other actions', 'Privacy Vault keys'], provider: 'Local demo engine', model: 'Deterministic SOPET rules' });
+          if (!grant) return;
+        }
+        const result = ContextualAiService.suggestMma(parentAction.title);
+        setMmaTitle(result.title); setWhyThisHelps(result.whyThisHelps); return;
+      }
+      const response = await sendAiRequest<{ suggestedMmaTitle: string; whyThisRestoresMomentum: string }>({
+        path: '/ai/suggest-mma', privacyMode, requestConsent,
+        details: { purpose: 'Suggest a Minimum Meaningful Action', fieldsShared: ['actionTitle', 'barrierCategoryCode'], fieldsNotShared: ['Goal description', 'Why this matters', 'Barrier notes', 'Other actions', 'Privacy Vault keys'], provider: 'Google Gemini', model: 'gemini-2.5-flash' },
+        payload: { goalId: parentAction.goalId, actionTitle: parentAction.title, barrierCategoryCode: 'OVERWHELM' },
+      });
+      if (response) { setMmaTitle(response.suggestedMmaTitle); setWhyThisHelps(response.whyThisRestoresMomentum); }
+    } catch { showToast('AI suggestion could not be completed.', 'warning'); }
+    finally { setIsSuggesting(false); }
   };
 
   const handleStart = () => {
@@ -60,7 +84,7 @@ export const MmaModal: React.FC = () => {
         {/* Header */}
         <div className="bg-[#0E3C5B] text-white p-5 flex items-center justify-between">
           <div>
-            <span className="text-[11px] uppercase tracking-wider font-semibold text-[#4B9C91]">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-teal-700">
               Intervention Protocol
             </span>
             <h2 className="text-lg font-bold">Minimum Meaningful Action (MMA)</h2>
@@ -94,7 +118,7 @@ export const MmaModal: React.FC = () => {
           {existingMma ? (
             <div className="border-2 border-[#4B9C91]/40 rounded-xl p-4 bg-white shadow-xs space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] uppercase font-bold tracking-wider text-[#4B9C91]">
+                <span className="text-[11px] uppercase font-bold tracking-wider text-teal-700">
                   Active Linked MMA:
                 </span>
                 <span
@@ -162,11 +186,16 @@ export const MmaModal: React.FC = () => {
           ) : (
             /* Form to create MMA */
             <form onSubmit={handleCreate} className="space-y-4">
+              <div className="flex justify-end">
+                <button type="button" onClick={handleSuggest} disabled={isSuggesting} className="flex items-center gap-2 rounded-lg border border-[#155A8A] px-3 py-2 text-xs font-semibold text-[#155A8A] disabled:opacity-50">
+                  <Sparkles className="h-3.5 w-3.5" />{isSuggesting ? 'Suggesting...' : 'Suggest with AI'}
+                </button>
+              </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-800 mb-1">
+                <label className="block text-xs font-semibold text-gray-800 mb-1" htmlFor="field-mmamodal-mmaTitle">
                   Proposed Minimum Meaningful Action:
                 </label>
-                <input
+                <input id="field-mmamodal-mmaTitle"
                   type="text"
                   required
                   value={mmaTitle}
@@ -177,10 +206,10 @@ export const MmaModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-800 mb-1">
+                <label className="block text-xs font-semibold text-gray-800 mb-1" htmlFor="field-mmamodal-whyThisHelps">
                   Why this helps:
                 </label>
-                <textarea
+                <textarea id="field-mmamodal-whyThisHelps"
                   rows={2}
                   required
                   value={whyThisHelps}

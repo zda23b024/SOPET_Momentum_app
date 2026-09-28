@@ -1,5 +1,8 @@
+import { WorkspaceState } from '../common/WorkspaceState';
+import { isDemoMode } from '../../services/api';
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { GoalSharingPanel } from './GoalSharingPanel';
 import { Goal, ActionRhythm } from '../../types';
 import {
   Target,
@@ -56,27 +59,27 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
   const [newActionDueDate, setNewActionDueDate] = useState(
     new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0]
   );
-  const [newActionRhythm, setNewActionRhythm] = useState<ActionRhythm>('Three times weekly');
+  const [newActionRhythm, setNewActionRhythm] = useState<ActionRhythm>(isDemoMode ? 'Three times weekly' : 'Not specified');
   const [newActionIsNma, setNewActionIsNma] = useState(false);
 
-  if (!goal) return <div>Goal not found.</div>;
+  if (!goal) return <WorkspaceState title="404 — Goal not found" description="This Goal may have been removed or is unavailable to your account." action={<button className="primary-button" onClick={onBack}>Back to Goals</button>} />;
 
   const goalMilestones = milestones.filter(m => m.goalId === goal.id);
   const goalActions = actions.filter(a => a.goalId === goal.id);
   const currentNma = goalActions.find(a => a.isNMA);
 
-  const handleSaveMilestone = (e: React.FormEvent) => {
+  const handleSaveMilestone = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMilestoneTitle.trim()) return;
-    createMilestone(goal.id, newMilestoneTitle, newMilestoneDate);
+    if (!await createMilestone(goal.id, newMilestoneTitle, newMilestoneDate)) return;
     setNewMilestoneTitle('');
     setIsAddingMilestone(false);
   };
 
-  const handleSaveAction = (e: React.FormEvent) => {
+  const handleSaveAction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newActionTitle.trim()) return;
-    createActionItem({
+    const saved = await createActionItem({
       goalId: goal.id,
       title: newActionTitle,
       description: newActionDescription,
@@ -85,6 +88,7 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
       isNMA: newActionIsNma,
       status: 'Not Started',
     });
+    if (!saved) return;
     setNewActionTitle('');
     setNewActionDescription('');
     setIsAddingAction(false);
@@ -102,13 +106,13 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
           <span>Back to Goals</span>
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {!goal.isPrimary && (
             <button
               onClick={() => setPrimaryGoal(goal.id)}
               className="text-xs bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg font-medium transition"
             >
-              Set as Primary Focus
+              {isDemoMode ? 'Set as Primary Focus' : 'Focus for this visit'}
             </button>
           )}
 
@@ -134,10 +138,10 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-[#155A8A] bg-[#EAF4FB] px-2 py-0.5 rounded">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              {goal.category !== 'Not specified' && <span className="text-[10px] uppercase font-bold tracking-wider text-[#155A8A] bg-[#EAF4FB] px-2 py-0.5 rounded">
                 {goal.category}
-              </span>
+              </span>}
               {goal.isPrimary && (
                 <span className="text-[10px] uppercase font-bold tracking-wider bg-[#C5A034] text-gray-950 px-2 py-0.5 rounded">
                   Primary Focus Goal
@@ -212,7 +216,7 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
           </span>
           <div className="space-y-1">
             {goal.statusHistory.map((hist, idx) => (
-              <div key={idx} className="text-[11px] text-gray-500 flex items-center gap-2">
+              <div key={idx} className="text-[11px] text-gray-500 flex flex-wrap items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                 <span className="font-medium text-gray-700">{hist.status}</span>
                 <span>—</span>
@@ -223,6 +227,8 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
           </div>
         </div>
       </div>
+
+      {!isDemoMode && <GoalSharingPanel goal={goal} />}
 
       {/* Milestones Section */}
       <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-xs space-y-4">
@@ -329,8 +335,8 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
         {isAddingAction && (
           <form onSubmit={handleSaveAction} className="p-4 bg-gray-50 rounded-xl border space-y-3 text-xs">
             <div>
-              <label className="block font-semibold text-gray-700 mb-1">Action Title *</label>
-              <input
+              <label className="block font-semibold text-gray-700 mb-1" htmlFor="field-goaldetailview-newActionTitle">Action Title *</label>
+              <input id="field-goaldetailview-newActionTitle"
                 type="text"
                 required
                 value={newActionTitle}
@@ -340,8 +346,8 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
               />
             </div>
             <div>
-              <label className="block font-medium text-gray-700 mb-1">Description (Optional)</label>
-              <textarea
+              <label className="block font-medium text-gray-700 mb-1" htmlFor="field-goaldetailview-newActionDescription">Description (Optional)</label>
+              <textarea id="field-goaldetailview-newActionDescription"
                 rows={2}
                 value={newActionDescription}
                 onChange={e => setNewActionDescription(e.target.value)}
@@ -350,8 +356,8 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-medium text-gray-700 mb-1">Due Date</label>
-                <input
+                <label className="block font-medium text-gray-700 mb-1" htmlFor="field-goaldetailview-newActionDueDate">Due Date</label>
+                <input id="field-goaldetailview-newActionDueDate"
                   type="date"
                   required
                   value={newActionDueDate}
@@ -359,9 +365,9 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
                   className="w-full p-2 border border-gray-300 rounded-lg bg-white"
                 />
               </div>
-              <div>
-                <label className="block font-medium text-gray-700 mb-1">Rhythm</label>
-                <select
+              {isDemoMode && <div>
+                <label className="block font-medium text-gray-700 mb-1" htmlFor="field-goaldetailview-newActionRhythm">Rhythm</label>
+                <select id="field-goaldetailview-newActionRhythm"
                   value={newActionRhythm}
                   onChange={e => setNewActionRhythm(e.target.value as ActionRhythm)}
                   className="w-full p-2 border border-gray-300 rounded-lg bg-white"
@@ -371,9 +377,9 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
                   <option value="Weekly">Weekly</option>
                   <option value="Milestone-based">Milestone-based</option>
                 </select>
-              </div>
+              </div>}
             </div>
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <input
                 type="checkbox"
                 id="isNmaCheck"
@@ -414,7 +420,7 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
               }`}
             >
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {act.isNMA && (
                     <span className="bg-[#C5A034] text-gray-950 font-extrabold text-[10px] px-2 py-0.5 rounded-full uppercase">
                       Active NMA
@@ -430,12 +436,12 @@ export const GoalDetailView: React.FC<Props> = ({ goalId, onBack }) => {
                   <span>·</span>
                   <span>Due: {act.dueDate}</span>
                   <span>·</span>
-                  <span>Rhythm: {act.rhythm}</span>
+                  {act.rhythm !== 'Not specified' && <span>Rhythm: {act.rhythm}</span>}
                 </div>
               </div>
 
               {/* Action Controls */}
-              <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="flex flex-wrap items-center gap-2 self-end sm:self-center">
                 {!act.isNMA && act.status !== 'Completed' && (
                   <button
                     onClick={() => setAsNma(act.id)}

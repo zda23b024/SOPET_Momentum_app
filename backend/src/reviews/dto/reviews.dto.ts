@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsBoolean, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsDateString, IsEnum, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ContentEncoding } from '@prisma/client';
 
 export class CreateWeeklyReviewDto {
   @ApiProperty({ example: 'goal-amina-primary' })
@@ -11,17 +12,20 @@ export class CreateWeeklyReviewDto {
   @IsDateString()
   weekEndingDate?: string;
 
-  @ApiProperty({ description: '1. What meaningful progress was made toward the primary goal?' })
+  @ApiPropertyOptional({ description: '1. What meaningful progress was made toward the primary goal?' })
+  @IsOptional()
   @IsString()
-  meaningfulProgress: string;
+  meaningfulProgress?: string;
 
-  @ApiProperty({ description: '2. Which actions actually mattered vs avoidant busywork?' })
+  @ApiPropertyOptional({ description: '2. Which actions actually mattered vs avoidant busywork?' })
+  @IsOptional()
   @IsString()
-  actionsThatMattered: string;
+  actionsThatMattered?: string;
 
-  @ApiProperty({ description: '3. What got in the way (internal friction, external conditions)?' })
+  @ApiPropertyOptional({ description: '3. What got in the way (internal friction, external conditions)?' })
+  @IsOptional()
   @IsString()
-  whatGotInTheWay: string;
+  whatGotInTheWay?: string;
 
   @ApiPropertyOptional({ description: '4a. Which interventions or MMA techniques helped?' })
   @IsOptional()
@@ -43,9 +47,10 @@ export class CreateWeeklyReviewDto {
   @IsString()
   restartDetails?: string;
 
-  @ApiProperty({ description: 'What is the Next Meaningful Action (NMA) anchored for next week?' })
+  @ApiPropertyOptional({ description: 'What is the Next Meaningful Action (NMA) anchored for next week?' })
+  @IsOptional()
   @IsString()
-  nextNmaTitle: string;
+  nextNmaTitle?: string;
 
   @ApiPropertyOptional({ description: 'Personal lesson extracted from this week’s execution rhythm' })
   @IsOptional()
@@ -56,6 +61,12 @@ export class CreateWeeklyReviewDto {
   @IsOptional()
   @IsString()
   concreteAdjustment?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  aiSummaryDraft?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsBoolean()
+  aiSummaryConfirmed?: boolean;
 
   // Privacy / Encryption
   @ApiPropertyOptional()
@@ -72,4 +83,8 @@ export class CreateWeeklyReviewDto {
   @IsOptional()
   @IsString()
   encryptionMetadata?: string;
+  @ApiPropertyOptional({ enum: ContentEncoding }) @IsOptional() @IsEnum(ContentEncoding)
+  contentEncoding?: ContentEncoding;
+  @ApiPropertyOptional() @IsOptional() @IsObject()
+  encryptedPayload?: Record<string, unknown>;
 }

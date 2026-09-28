@@ -39,4 +39,9 @@ export class MmaController {
   ) {
     return await this.mmaService.completeMma(user.id, mmaId);
   }
+
+  @Patch('mma/:id/start')
+  async startMma(@CurrentUser() user: AuthenticatedUser, @Param('id') mmaId: string) {
+    return this.mmaService.startMma(user.id, mmaId);
+  }
 }

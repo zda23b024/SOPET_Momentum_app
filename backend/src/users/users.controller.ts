@@ -41,4 +41,8 @@ export class UsersController {
   async requestDeletion(@CurrentUser() user: AuthenticatedUser) {
     return await this.usersService.requestAccountDeletion(user.id);
   }
+
+  @Post('cancel-account-deletion')
+  @ApiOperation({ summary: 'Cancel the authenticated user\'s pending account deletion' })
+  async cancelDeletion(@CurrentUser() user: AuthenticatedUser) { return this.usersService.cancelAccountDeletion(user.id); }
 }

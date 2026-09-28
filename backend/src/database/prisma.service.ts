@@ -19,7 +19,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       this.logger.log('Connected to PostgreSQL database via Prisma');
     } catch (error: any) {
       this.isConnected = false;
-      this.logger.warn(`PostgreSQL not connected (${error?.message || 'Check DATABASE_URL'}). Fallback memory mode active for dev demo.`);
+      if (process.env.NODE_ENV === 'production') {
+        this.logger.error(`PostgreSQL connection failed: ${error?.message || 'Check DATABASE_URL'}`);
+        throw error;
+      }
+      this.logger.warn(`PostgreSQL not connected (${error?.message || 'Check DATABASE_URL'}). Memory mode is development-only.`);
     }
   }
 

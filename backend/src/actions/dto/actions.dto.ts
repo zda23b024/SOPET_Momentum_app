@@ -1,6 +1,6 @@
-import { IsString, IsOptional, IsEnum, IsBoolean, IsInt, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, IsInt, IsObject, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ActionStatus } from '@prisma/client';
+import { ActionStatus, ContentEncoding } from '@prisma/client';
 
 export class CreateActionDto {
   @ApiProperty({ example: 'goal-amina-primary' })
@@ -12,9 +12,10 @@ export class CreateActionDto {
   @IsString()
   milestoneId?: string;
 
-  @ApiProperty({ example: 'Interview three catering clients about seasonal lunch preferences' })
+  @ApiPropertyOptional({ example: 'Interview three catering clients about seasonal lunch preferences' })
+  @IsOptional()
   @IsString()
-  title: string;
+  title?: string;
 
   @ApiPropertyOptional({ example: 'Reach out to local office managers via phone or email.' })
   @IsOptional()
@@ -31,6 +32,9 @@ export class CreateActionDto {
   @IsInt()
   estimatedMinutes?: number;
 
+  @IsOptional() @IsDateString()
+  scheduledDate?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
@@ -45,6 +49,13 @@ export class CreateActionDto {
   @IsOptional()
   @IsString()
   encryptionMetadata?: string;
+
+  @ApiPropertyOptional({ enum: ContentEncoding }) @IsOptional() @IsEnum(ContentEncoding)
+  contentEncoding?: ContentEncoding;
+  @ApiPropertyOptional() @IsOptional() @IsObject()
+  plaintextContent?: Record<string, unknown>;
+  @ApiPropertyOptional() @IsOptional() @IsObject()
+  encryptedPayload?: Record<string, unknown>;
 }
 
 export class UpdateActionStatusDto {
@@ -63,4 +74,9 @@ export class DesignateNmaDto {
   @IsOptional()
   @IsString()
   rationale?: string;
+}
+
+export class RescheduleActionDto {
+  @IsDateString()
+  scheduledDate: string;
 }

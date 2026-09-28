@@ -1,4 +1,5 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
+import { ContentEncoding } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateReadinessDto {
@@ -26,4 +27,10 @@ export class CreateReadinessDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional() @IsEnum(ContentEncoding)
+  contentEncoding?: ContentEncoding;
+
+  @IsOptional() @IsObject()
+  encryptedPayload?: Record<string, unknown>;
 }

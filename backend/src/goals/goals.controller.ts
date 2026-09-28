@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { GoalsService } from './goals.service';
-import { CreateGoalDto, UpdateGoalStatusDto } from './dto/goals.dto';
+import { CreateGoalDto, UpdateGoalStatusDto, UpgradeGoalPrivacyDto } from './dto/goals.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { CommitGoalKeyMigrationDto, FailGoalKeyMigrationDto } from './dto/goal-key-migration.dto';
 
 @ApiTags('Goals')
 @ApiBearerAuth()
@@ -44,5 +45,31 @@ export class GoalsController {
     @Body() dto: UpdateGoalStatusDto,
   ) {
     return await this.goalsService.updateGoalStatus(user.id, id, dto);
+  }
+
+  @Get('privacy-migrations')
+  async listLegacyKeyMigrations(@CurrentUser() user: AuthenticatedUser) {
+    return this.goalsService.listLegacyKeyMigrations(user.id);
+  }
+
+  @Post(':id/privacy-migration/begin')
+  async beginGoalKeyMigration(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.goalsService.beginGoalKeyMigration(user.id, id);
+  }
+
+  @Put(':id/privacy-migration/commit')
+  async commitGoalKeyMigration(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: CommitGoalKeyMigrationDto) {
+    return this.goalsService.commitGoalKeyMigration(user.id, id, dto);
+  }
+
+  @Post(':id/privacy-migration/fail')
+  async failGoalKeyMigration(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: FailGoalKeyMigrationDto) {
+    return this.goalsService.failGoalKeyMigration(user.id, id, dto.migrationId, dto.errorCode);
+  }
+
+  @Patch(':id/privacy')
+  @ApiOperation({ summary: 'Atomically upgrade a goal from plaintext to browser-encrypted storage' })
+  async upgradePrivacy(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpgradeGoalPrivacyDto) {
+    return this.goalsService.upgradePrivacy(user.id, id, dto);
   }
 }

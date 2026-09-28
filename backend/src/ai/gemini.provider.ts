@@ -17,6 +17,7 @@ export class GeminiProvider implements AiProviderAdapter {
   private readonly logger = new Logger('GeminiProvider');
   private ai: GoogleGenAI | null = null;
   private readonly modelName = 'gemini-2.5-flash';
+  private readonly production = process.env.NODE_ENV === 'production';
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -28,7 +29,8 @@ export class GeminiProvider implements AiProviderAdapter {
         this.logger.warn(`Failed to initialize GoogleGenAI: ${e?.message}`);
       }
     } else {
-      this.logger.log('Gemini API key not provided or placeholder. High-fidelity heuristic engine active.');
+      if (this.production) throw new Error('GEMINI_API_KEY is required when AI routes are enabled in production');
+      this.logger.log('Gemini API key not provided. Development heuristic engine active.');
     }
   }
 
@@ -77,7 +79,8 @@ Return a JSON object conforming exactly to this structure:
           return parsed;
         }
       } catch (err: any) {
-        this.logger.warn(`Gemini API call failed, falling back to heuristic engine: ${err?.message}`);
+        if (this.production) throw err;
+        this.logger.warn(`Gemini API call failed; development heuristic used: ${err?.message}`);
       }
     }
 
@@ -120,7 +123,8 @@ Return valid JSON:
           return JSON.parse(res.text);
         }
       } catch (err: any) {
-        this.logger.warn(`Gemini generateMma failed, using heuristic: ${err?.message}`);
+        if (this.production) throw err;
+        this.logger.warn(`Gemini generateMma failed; development heuristic used: ${err?.message}`);
       }
     }
 
@@ -159,7 +163,8 @@ Return valid JSON:
           return JSON.parse(res.text);
         }
       } catch (err: any) {
-        this.logger.warn(`Gemini suggestRestart failed, using heuristic: ${err?.message}`);
+        if (this.production) throw err;
+        this.logger.warn(`Gemini suggestRestart failed; development heuristic used: ${err?.message}`);
       }
     }
 
@@ -204,7 +209,8 @@ Return valid JSON:
           return JSON.parse(res.text);
         }
       } catch (err: any) {
-        this.logger.warn(`Gemini sharpenNma failed, using heuristic: ${err?.message}`);
+        if (this.production) throw err;
+        this.logger.warn(`Gemini sharpenNma failed; development heuristic used: ${err?.message}`);
       }
     }
 
