@@ -19,16 +19,18 @@ export async function provisionSystemOwner(db: PrismaClient, env: NodeJS.Process
     const users = await tx.user.findMany({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } });
     if (users.length > 1) throw new ProvisionError('Ambiguous email identity; provisioning refused.');
     const existing = users[0];
-    const owners = await tx.userRole.findMany({ where: { role: { name: UserRoleType.SYSTEM_OWNER } }, select: { userId: true } });
-    if (owners.some(owner => owner.userId !== existing?.id)) throw new ProvisionError('A different SYSTEM_OWNER already exists.');
+    const owners = await tx.userRole.findMany({ where: { role: { name: UserRoleType.OWNER } }, select: { userId: true } });
+    // This emergency bootstrap remains deliberately single-target. Additional
+    // owners are created by an authenticated owner through the audited API.
+    if (owners.some(owner => owner.userId !== existing?.id)) throw new ProvisionError('A different OWNER already exists.');
     if (resetPassword) {
-      if (!existing || !owners.some(owner => owner.userId === existing.id)) throw new ProvisionError('Password reset requires an existing SYSTEM_OWNER.');
+      if (!existing || !owners.some(owner => owner.userId === existing.id)) throw new ProvisionError('Password reset requires an existing OWNER.');
       const passwordHash = await CryptoUtil.hashPassword(password);
       await tx.user.update({ where: { id: existing.id }, data: { passwordHash, isActive: true, isEmailVerified: true } });
       await tx.session.updateMany({ where: { userId: existing.id }, data: { isRevoked: true } });
       return 'password-reset';
     }
-    const role = await tx.role.upsert({ where: { name: UserRoleType.SYSTEM_OWNER }, update: {}, create: { name: UserRoleType.SYSTEM_OWNER, description: 'Platform system owner' } });
+    const role = await tx.role.upsert({ where: { name: UserRoleType.OWNER }, update: {}, create: { name: UserRoleType.OWNER, description: 'Platform owner' } });
     if (existing && owners.length) {
       await tx.user.update({ where: { id: existing.id }, data: { isActive: true, isEmailVerified: true } });
       return 'already-owner';
@@ -48,7 +50,7 @@ export async function provisionSystemOwner(db: PrismaClient, env: NodeJS.Process
 
 async function main() {
   const db = new PrismaClient({ log: [] });
-  try { console.log(`SYSTEM_OWNER: ${await provisionSystemOwner(db)}`); }
+  try { console.log(`OWNER: ${await provisionSystemOwner(db)}`); }
   catch (error) {
     // Raw ORM errors may contain query inputs: never print them or their stacks.
     console.error(error instanceof ProvisionError ? error.message : 'Provisioning failed; transaction rolled back.');

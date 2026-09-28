@@ -16,12 +16,8 @@ datasource db {
 
 enum UserRoleType {
   USER
-  SUPPORT_ADMIN
-  SECURITY_ADMIN
-  KNOWLEDGE_ADMIN
-  ANALYTICS_ADMIN
-  PRODUCT_ADMIN
-  SYSTEM_OWNER
+  ADMIN
+  OWNER
 }
 
 enum PrivacyMode {

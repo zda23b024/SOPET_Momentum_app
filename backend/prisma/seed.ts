@@ -37,6 +37,7 @@ export async function runSeed(client: PrismaClient = prisma) {
     { code: 'prompt.view', description: 'View AI prompt templates' },
     { code: 'prompt.manage', description: 'Manage AI prompt versions' },
     { code: 'admin.roles.manage', description: 'Manage user roles and permissions' },
+    { code: 'admin.users.manage', description: 'Create users and manage account roles' },
     { code: 'admin.metrics.view', description: 'View administrative metrics' },
     { code: 'goal.shared.request', description: 'Request access to a user-shared goal' },
     { code: 'goal.shared.view', description: 'View a goal explicitly shared with this staff account' },
@@ -65,45 +66,13 @@ export async function runSeed(client: PrismaClient = prisma) {
       ],
     },
     {
-      name: UserRoleType.SUPPORT_ADMIN,
-      description: 'Technical Support Specialist. Can see operational metadata, cannot see private text.',
-      permissionCodes: ['account.metadata.view', 'security.sessions.view', 'knowledge.view', 'admin.metrics.view', 'goal.shared.request', 'goal.shared.view'],
+      name: UserRoleType.ADMIN,
+      description: 'Administrator. Has normal administrative access but cannot manage owners.',
+      permissionCodes: permissionsList.filter(p => !['admin.roles.manage', 'admin.users.manage'].includes(p.code)).map(p => p.code),
     },
     {
-      name: UserRoleType.SECURITY_ADMIN,
-      description: 'Security & Compliance Administrator. Manages sessions, security events, audit logs.',
-      permissionCodes: [
-        'security.sessions.view', 'security.sessions.revoke', 'security.events.view',
-        'account.metadata.view', 'account.suspend', 'admin.metrics.view'
-      ],
-    },
-    {
-      name: UserRoleType.KNOWLEDGE_ADMIN,
-      description: 'Methodology & Knowledge Base Curator. Manages ACIF taxonomy and interventions.',
-      permissionCodes: [
-        'knowledge.view', 'knowledge.edit', 'knowledge.publish',
-        'taxonomy.view', 'taxonomy.edit',
-        'intervention.view', 'intervention.edit', 'intervention.publish',
-        'admin.metrics.view'
-      ],
-    },
-    {
-      name: UserRoleType.ANALYTICS_ADMIN,
-      description: 'Cohort Progress & Statistical Analyst. Reads anonymized metrics.',
-      permissionCodes: ['analytics.view', 'admin.metrics.view'],
-    },
-    {
-      name: UserRoleType.PRODUCT_ADMIN,
-      description: 'Product Lead. Oversees prompt versions and operational readiness.',
-      permissionCodes: [
-        'prompt.view', 'prompt.manage', 'analytics.view', 'knowledge.view',
-        'taxonomy.view', 'intervention.view', 'admin.metrics.view',
-        'goal.shared.request', 'goal.shared.view'
-      ],
-    },
-    {
-      name: UserRoleType.SYSTEM_OWNER,
-      description: 'Break-glass owner. Heavily audited system administrator.',
+      name: UserRoleType.OWNER,
+      description: 'Platform owner. Has full administrative access and manages account roles.',
       permissionCodes: permissionsList.map(p => p.code),
     },
   ];
@@ -403,19 +372,19 @@ export async function runSeed(client: PrismaClient = prisma) {
     {
       email: 'support@sopet.local',
       fullName: 'SOPET Support Specialist',
-      role: UserRoleType.SUPPORT_ADMIN,
+      role: UserRoleType.ADMIN,
       privacyMode: PrivacyMode.STANDARD_PRIVATE,
     },
     {
       email: 'security@sopet.local',
       fullName: 'SOPET Security Lead',
-      role: UserRoleType.SECURITY_ADMIN,
+      role: UserRoleType.ADMIN,
       privacyMode: PrivacyMode.STANDARD_PRIVATE,
     },
     {
       email: 'owner@sopet.local',
       fullName: 'SOPET System Owner',
-      role: UserRoleType.SYSTEM_OWNER,
+      role: UserRoleType.OWNER,
       privacyMode: PrivacyMode.STANDARD_PRIVATE,
     },
   ];

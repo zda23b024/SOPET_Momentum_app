@@ -21,7 +21,7 @@ import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { ApproveGoalAccessRequestDto, CommitEncryptedRevocationDto, GrantGoalAccessDto, RegisterSharingKeyDto, RequestGoalAccessDto } from './dto/sharing.dto';
 import { validateEncryptedContent } from '../common/privacy/content-envelope';
 
-const STAFF_ROLES: UserRoleType[] = [UserRoleType.SUPPORT_ADMIN, UserRoleType.PRODUCT_ADMIN];
+const STAFF_ROLES: UserRoleType[] = [UserRoleType.ADMIN, UserRoleType.OWNER];
 const STAFF_PERMISSIONS = ['goal.shared.request', 'goal.shared.view'];
 
 @Injectable()

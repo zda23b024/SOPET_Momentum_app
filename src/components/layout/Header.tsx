@@ -116,20 +116,6 @@ export const Header: React.FC = () => {
               >
                 User Demo
               </button>
-              <button
-                onClick={() => {
-                  setDemoRole('admin'); setActiveView('admin');
-                  showToast('Switched to Administrator Demo view (ACIF Taxonomy & Governance).', 'info');
-                }}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition ${
-                  demoRole === 'admin'
-                    ? 'bg-[#C5A034] text-gray-900 font-semibold'
-                    : 'text-gray-300 hover:text-white'
-                }`}
-                title="View administrator metrics, ACIF taxonomy, and interventions"
-              >
-                Admin Demo
-              </button>
             </div>}
 
             {/* Reset Demo Data Button */}
@@ -181,17 +167,6 @@ export const Header: React.FC = () => {
                       <Settings className="w-4 h-4 text-gray-500" />
                       <span>Account &amp; Privacy Settings</span>
                     </button>
-
-                    {isDemoMode && <button
-                      onClick={() => {
-                        setDemoRole(demoRole === 'admin' ? 'user' : 'admin'); setActiveView(demoRole === 'admin' ? 'today' : 'admin');
-                        setIsProfileDropdownOpen(false);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 hover:bg-gray-50 text-gray-700 text-left"
-                    >
-                      <ShieldCheck className="w-4 h-4 text-[#C5A034]" />
-                      <span>Switch to {demoRole === 'admin' ? 'User' : 'Admin'} Mode</span>
-                    </button>}
 
                     {activeRole === 'admin' && <button onClick={() => { setActiveView('admin'); setIsProfileDropdownOpen(false); }} className="w-full px-4 py-2 text-left hover:bg-slate-50">Administration</button>}
                     <div className="border-t border-gray-100 my-1"></div>

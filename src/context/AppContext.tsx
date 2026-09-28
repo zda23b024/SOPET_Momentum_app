@@ -222,8 +222,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Navigation & Role
   const [activeView, setActiveView] = useState<AppContextType['activeView']>('today');
   const [demoRole, setDemoRole] = useState<'user' | 'admin'>('user');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(isDemoMode);
-  const [authStatus, setAuthStatus] = useState<AppContextType['authStatus']>(isDemoMode ? 'authenticated' : 'checking');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [authStatus, setAuthStatus] = useState<AppContextType['authStatus']>(isDemoMode ? 'unauthenticated' : 'checking');
   const [authError, setAuthError] = useState<string | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
@@ -232,7 +232,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const authRef = useRef(false);
   const signedOut = useRef(false);
   const reloadData = () => setReloadVersion(value => value + 1);
-  const [user, setUser] = useState<AppUser | null>(isDemoMode ? INITIAL_USER : null);
+  const [user, setUser] = useState<AppUser | null>(null);
 
   useEffect(() => {
     if (isDemoMode || signedOut.current) return;

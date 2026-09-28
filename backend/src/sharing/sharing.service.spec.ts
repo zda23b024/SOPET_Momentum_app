@@ -5,11 +5,11 @@ import { SharingService } from './sharing.service';
 const staff = {
   id: 'admin-a',
   isActive: true,
-  userRoles: [{ role: { name: UserRoleType.SUPPORT_ADMIN } }],
+  userRoles: [{ role: { name: UserRoleType.ADMIN } }],
   permissions: ['goal.shared.request', 'goal.shared.view'],
 };
 
-const user = { id: 'admin-a', email: 'support@example.com', roles: ['SUPPORT_ADMIN'], permissions: staff.permissions };
+const user = { id: 'admin-a', email: 'support@example.com', roles: ['ADMIN'], permissions: staff.permissions };
 
 function makeService(overrides: Record<string, any> = {}) {
   const prisma = {
@@ -61,14 +61,14 @@ describe('SharingService authorization', () => {
   it('rejects a grant to an ineligible administrator account', async () => {
     const { service, prisma } = makeService();
     prisma.goal.findUnique.mockResolvedValue({ id: 'goal-a', userId: 'owner-1', privacyMode: PrivacyMode.STANDARD_PRIVATE });
-    prisma.user.findUnique.mockResolvedValue({ id: 'admin-b', isActive: true, userRoles: [{ role: { name: UserRoleType.ANALYTICS_ADMIN } }] });
+    prisma.user.findUnique.mockResolvedValue({ id: 'admin-b', isActive: true, userRoles: [{ role: { name: UserRoleType.USER } }] });
 
     await expect(service.grant('owner-1', 'goal-a', { granteeUserId: 'admin-b', permission: GoalAccessPermission.VIEW } as any)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('does not give SYSTEM_OWNER private Goal access by role alone', async () => {
+  it('does not give OWNER private Goal access by role alone', async () => {
     const { service, prisma } = makeService();
-    const systemOwner = { ...user, roles: ['SYSTEM_OWNER'] };
+    const systemOwner = { ...user, roles: ['OWNER'] };
     prisma.goalAccessGrant.updateMany.mockResolvedValue({ count: 0 });
     prisma.goalAccessGrant.findFirst.mockResolvedValue(null);
     await expect(service.getSharedGoal(systemOwner, 'goal-secret')).rejects.toBeInstanceOf(ForbiddenException);
@@ -80,7 +80,7 @@ describe('SharingService authorization', () => {
     prisma.goal.findUnique.mockResolvedValue({ id: 'goal-a', userId: 'owner-1', privacyMode: PrivacyMode.STANDARD_PRIVATE });
     prisma.goalAccessRequest.findFirst.mockResolvedValue({
       id: 'request-1', goalId: 'goal-a', ownerUserId: 'owner-1', requesterId: 'admin-a', reason: 'Requested support',
-      requester: { id: 'admin-a', isActive: true, userRoles: [{ role: { name: UserRoleType.SUPPORT_ADMIN, permissions: [{ permission: { code: 'goal.shared.request' } }, { permission: { code: 'goal.shared.view' } }] } }] },
+      requester: { id: 'admin-a', isActive: true, userRoles: [{ role: { name: UserRoleType.ADMIN, permissions: [{ permission: { code: 'goal.shared.request' } }, { permission: { code: 'goal.shared.view' } }] } }] },
     });
     prisma.goalAccessGrant.findFirst.mockResolvedValue(null);
     prisma.goalAccessGrant.create.mockResolvedValue({ id: 'grant-1', permission: GoalAccessPermission.VIEW });

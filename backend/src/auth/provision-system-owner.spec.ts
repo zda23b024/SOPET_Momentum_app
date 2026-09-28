@@ -44,7 +44,7 @@ describe('one-time production owner provisioning', () => {
   });
   it.each([['other'], ['u', 'other']])('refuses a different owner without writes', async (...ids) => {
     const { tx, db } = setup(true, ids);
-    await expect(provisionSystemOwner(db, env)).rejects.toThrow('different SYSTEM_OWNER');
+    await expect(provisionSystemOwner(db, env)).rejects.toThrow('different OWNER');
     expect(tx.role.upsert).not.toHaveBeenCalled();
     expect(tx.user.update).not.toHaveBeenCalled();
   });
@@ -75,7 +75,7 @@ describe('explicit owner password reset', () => {
   });
   it.each([false, true])('never creates or promotes a non-owner in reset mode', async existing => {
     const { tx, db } = setup(existing);
-    await expect(provisionSystemOwner(db, reset)).rejects.toThrow('existing SYSTEM_OWNER');
+    await expect(provisionSystemOwner(db, reset)).rejects.toThrow('existing OWNER');
     expect(tx.user.create).not.toHaveBeenCalled();
     expect(tx.user.update).not.toHaveBeenCalled();
     expect(tx.role.upsert).not.toHaveBeenCalled();
