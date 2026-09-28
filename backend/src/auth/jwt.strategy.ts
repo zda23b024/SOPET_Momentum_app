@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service';
 
@@ -13,6 +13,8 @@ export interface JwtPayload {
   privacyMode?: string;
 }
 
+export const cookieAccessTokenExtractor = (req: { cookies?: Record<string, string> }) => req?.cookies?.['accessToken'] || null;
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -20,12 +22,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly prisma: PrismaService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-        (req) => req?.cookies?.['accessToken'] || null,
-      ]),
+      jwtFromRequest: cookieAccessTokenExtractor,
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('jwt.accessSecret') || 'sopet_dev_jwt_access_secret_2026_super_secure',
+      secretOrKey: configService.getOrThrow<string>('jwt.accessSecret'),
     });
   }
 
@@ -34,7 +33,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid token payload');
     }
 
-    // Check if session is revoked if DB is connected
+    if (!this.prisma.isConnected && payload.roles?.some(role => role !== 'USER')) {
+      throw new UnauthorizedException('Administrative sessions require the persistent data service');
+    }
     if (this.prisma.isConnected && payload.sessionId) {
       const session = await this.prisma.session.findUnique({
         where: { id: payload.sessionId },
@@ -44,6 +45,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
+    if (this.prisma.isConnected) {
+      const account = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { email: true, isActive: true, mfaEnabled: true, defaultPrivacyMode: true, userRoles: { select: { role: { select: { name: true, permissions: { select: { permission: { select: { code: true } } } } } } } } },
+      });
+      if (!account?.isActive) throw new UnauthorizedException('Account is inactive');
+      return {
+        id: payload.sub,
+        email: account.email,
+        roles: account.userRoles.map(item => item.role.name),
+        permissions: [...new Set(account.userRoles.flatMap(item => item.role.permissions.map(grant => grant.permission.code)))],
+        sessionId: payload.sessionId,
+        privacyMode: account.defaultPrivacyMode,
+        mfaEnabled: account.mfaEnabled,
+      };
+    }
+
     return {
       id: payload.sub,
       email: payload.email,
@@ -51,6 +69,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       permissions: payload.permissions || [],
       sessionId: payload.sessionId,
       privacyMode: payload.privacyMode || 'STANDARD_PRIVATE',
+      mfaEnabled: false,
     };
   }
 }

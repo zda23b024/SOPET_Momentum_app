@@ -27,9 +27,8 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied: unauthenticated user');
     }
 
-    // SYSTEM_OWNER has global break-glass bypass (audited)
-    if (user.roles?.includes('SYSTEM_OWNER')) {
-      return true;
+    if (process.env.NODE_ENV === 'production' && user.roles?.includes('SYSTEM_OWNER') && !user.mfaEnabled) {
+      throw new ForbiddenException('System owners must enable MFA before administrative access');
     }
 
     // Role check

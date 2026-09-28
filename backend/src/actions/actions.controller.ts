@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ActionsService } from './actions.service';
-import { CreateActionDto, UpdateActionStatusDto, DesignateNmaDto } from './dto/actions.dto';
+import { CreateActionDto, UpdateActionStatusDto, DesignateNmaDto, RescheduleActionDto } from './dto/actions.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
@@ -58,5 +58,10 @@ export class ActionsController {
     @Body() dto?: DesignateNmaDto,
   ) {
     return await this.actionsService.designateNMA(user.id, id, dto);
+  }
+
+  @Patch(':id/schedule')
+  async reschedule(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: RescheduleActionDto) {
+    return this.actionsService.reschedule(user.id, id, dto.scheduledDate);
   }
 }

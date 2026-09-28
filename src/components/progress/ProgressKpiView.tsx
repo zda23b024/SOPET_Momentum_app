@@ -1,4 +1,7 @@
 import React from 'react';
+import { ProductionProgress } from './ProductionProgress';
+import { isDemoMode } from '../../services/api';
+import { WorkspaceState } from '../common/WorkspaceState';
 import { useApp } from '../../context/AppContext';
 import {
   TrendingUp,
@@ -26,6 +29,9 @@ export const ProgressKpiView: React.FC = () => {
     primaryGoal,
     barriers
   } = useApp();
+
+  if (!isDemoMode) return <ProductionProgress />;
+  if (!isDemoMode && !kpis.totalActions && !kpis.totalMilestones && !weeklyReviews.length) return <WorkspaceState title="No data yet" description="Your completed Actions, Milestones and Weekly Reviews will build a picture of your progress." action={<button className="primary-button" onClick={() => setActiveView('goals')}>View Goals</button>} />;
 
   const handleOpenReview = openWeeklyReviewModal || openWeeklyReview;
 
@@ -75,7 +81,7 @@ export const ProgressKpiView: React.FC = () => {
           <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
             <div
               className="bg-[#155A8A] h-full rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(100, Math.max(5, kpis.actionCompletionRate))}%` }}
+              style={{ width: `${Math.min(100, Math.max(0, kpis.actionCompletionRate))}%` }}
             ></div>
           </div>
           <span className="text-[10px] text-gray-500 block">Actions completed as planned</span>
@@ -87,13 +93,13 @@ export const ProgressKpiView: React.FC = () => {
             Momentum Continuity
           </span>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-[#4B9C91]">
+            <span className="text-2xl sm:text-3xl font-extrabold text-teal-700">
               {kpis.continuityWeeks}
             </span>
             <span className="text-xs font-semibold text-gray-600">consecutive wks</span>
           </div>
           <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-            <div className="bg-[#4B9C91] h-full rounded-full" style={{ width: '80%' }}></div>
+            <div className="bg-[#4B9C91] h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, kpis.continuityWeeks * 10))}%` }}></div>
           </div>
           <span className="text-[10px] text-gray-500 block">≥ 1 Meaningful Action weekly</span>
         </div>
@@ -110,7 +116,7 @@ export const ProgressKpiView: React.FC = () => {
             <span className="text-xs font-semibold text-gray-600">days avg</span>
           </div>
           <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-            <div className="bg-[#C5A034] h-full rounded-full" style={{ width: '85%' }}></div>
+            <div className="bg-[#C5A034] h-full rounded-full" style={{ width: `${kpis.restartSpeedDays ? Math.min(100, 100 / kpis.restartSpeedDays) : 0}%` }}></div>
           </div>
           <span className="text-[10px] text-gray-500 block">From interruption to restart action</span>
         </div>
@@ -131,7 +137,7 @@ export const ProgressKpiView: React.FC = () => {
           <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
             <div
               className="bg-[#0E3C5B] h-full rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(100, Math.max(5, kpis.barrierResolutionRate))}%` }}
+              style={{ width: `${Math.min(100, Math.max(0, kpis.barrierResolutionRate))}%` }}
             ></div>
           </div>
           <span className="text-[10px] text-gray-500 block">Barriers transformed via ACIF</span>
@@ -153,7 +159,7 @@ export const ProgressKpiView: React.FC = () => {
           <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
             <div
               className="bg-[#155A8A] h-full rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(100, Math.max(5, kpis.goalMilestoneProgress))}%` }}
+              style={{ width: `${Math.min(100, Math.max(0, kpis.goalMilestoneProgress))}%` }}
             ></div>
           </div>
           <span className="text-[10px] text-gray-500 block">Key developmental waypoints</span>
@@ -165,7 +171,7 @@ export const ProgressKpiView: React.FC = () => {
             Self-Efficacy Trend
           </span>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-[#4B9C91]">
+            <span className="text-2xl sm:text-3xl font-extrabold text-teal-700">
               {kpis.selfEfficacyScore}
             </span>
             <span className="text-xs font-semibold text-gray-500">/ 5.0</span>

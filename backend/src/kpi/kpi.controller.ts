@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { KpiService, RecordKpiValueDto } from './kpi.service';
+import { KpiService } from './kpi.service';
+import { CreateKpiDto, RecordKpiValueDto } from './dto/kpi.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
@@ -16,6 +17,12 @@ export class KpiController {
   async getMomentumKpis(@CurrentUser() user: AuthenticatedUser) {
     return await this.kpiService.calculateUserMomentumKpis(user.id);
   }
+
+  @Get()
+  async list(@CurrentUser() user: AuthenticatedUser) { return this.kpiService.list(user.id); }
+
+  @Post()
+  async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateKpiDto) { return this.kpiService.create(user.id, dto); }
 
   @Post(':id/values')
   @ApiOperation({ summary: 'Record a new KPI value entry (preserves historical timeline)' })

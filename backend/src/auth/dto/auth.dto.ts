@@ -35,6 +35,19 @@ export class LoginDto {
   @IsOptional()
   @IsString()
   totpCode?: string;
+
+  @ApiPropertyOptional({ description: 'Single-use recovery code if TOTP is unavailable' })
+  @IsOptional()
+  @IsString()
+  recoveryCode?: string;
+}
+
+export class ConfirmMfaDto {
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  totpCode: string;
 }
 
 export class RefreshTokenDto {
@@ -57,6 +70,32 @@ export class ForgotPasswordDto {
   email: string;
 }
 
+export class ManageMfaDto {
+  @IsString()
+  @MinLength(1)
+  currentPassword: string;
+
+  @IsOptional()
+  @IsString()
+  totpCode?: string;
+
+  @IsOptional()
+  @IsString()
+  recoveryCode?: string;
+}
+
+export class ResendVerificationDto {
+  @ApiProperty({ example: 'amina@example.com' })
+  @IsEmail()
+  email: string;
+}
+
+export class VerifyEmailDto {
+  @ApiProperty()
+  @IsString()
+  token: string;
+}
+
 export class ResetPasswordDto {
   @ApiProperty()
   @IsString()
@@ -64,6 +103,6 @@ export class ResetPasswordDto {
 
   @ApiProperty({ minLength: 8 })
   @IsString()
-  @MinLength(8)
+  @MinLength(12)
   newPassword: string;
 }

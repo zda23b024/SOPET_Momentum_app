@@ -22,6 +22,23 @@ The SOPET Momentum backend is a production-grade, privacy-conscious execution an
 
 ## 2. API Endpoints Reference
 
+### Development/staging administrator bootstrap
+
+The administration UI is at `http://localhost:3000/administration` after normal sign-in. It requires an eligible admin role **and** `admin.dashboard.view`; backend admin APIs independently enforce roles and permissions. Production `SYSTEM_OWNER` administration additionally requires MFA.
+
+On a development or staging database, first apply migrations and run `npm run prisma:seed` with `SEED_DEMO_USERS` unset/false so current roles and permissions exist. Set these values **locally** in `backend/.env` (never commit the password):
+
+```dotenv
+BOOTSTRAP_ADMIN_ENABLED=true
+BOOTSTRAP_ADMIN_EMAIL=admin@sopet.local
+BOOTSTRAP_ADMIN_PASSWORD=<developer-selected-secret-of-at-least-12-characters>
+BOOTSTRAP_ADMIN_ROLE=SYSTEM_OWNER
+```
+
+Run `npm run admin:bootstrap` from `backend`, then set `BOOTSTRAP_ADMIN_ENABLED=false`. The explicit command creates a verified account only when its email is absent; rerunning never resets or promotes an existing account. Production startup and the command reject enabled bootstrap mode. Use the normal login form, change the bootstrap password, and enable MFA. `SEED_DEMO_USERS` is not needed and must not be enabled in production. No role grants access to another user's private Goal without a valid `GoalAccessGrant` and, for encrypted content, the recipient's own key.
+
+The current UI supports metadata-only user search/status, role assignment by system owners, verification/password-reset email triggers, session revocation, security/audit history, pending deletion visibility, and health summaries. Admin invitation acceptance and a complete account-lockout inventory are not yet implemented.
+
 All routes are prefixed with `/api/v1`. Interactive OpenAPI/Swagger documentation is hosted at `/api/docs`.
 
 ### Authentication (`/api/v1/auth`)
@@ -132,14 +149,22 @@ bun run prisma:generate
 # Apply migrations
 bun run prisma:migrate
 
-# Seed database with roles, ACIF taxonomy, approved interventions, and demo users
-bun run prisma:seed
+# Seed reference data (roles, ACIF taxonomy, and approved interventions)
+npm run prisma:seed
+
+# Local/demo only: explicitly opt in to demo accounts with a private password
+$env:SEED_DEMO_USERS="true"
+$env:SEED_DEMO_PASSWORD="use-a-local-password-at-least-12-chars"
+npm run prisma:seed
 
 # Inspect database via GUI
 bun run prisma:studio
 ```
 
-### Pre-Seeded Demo Accounts (all password: `SopetPilot2026!`)
+### Demo Accounts
+
+Demo accounts are never created by default and no password is stored in this repository. Create them only in a local or disposable staging database by setting `SEED_DEMO_USERS=true` and `SEED_DEMO_PASSWORD`.
+
 1. **Pilot Participant**: `amina@example.com` (Role: `USER`)
 2. **Support Specialist**: `support@sopet.local` (Role: `SUPPORT_ADMIN`)
 3. **Security Lead**: `security@sopet.local` (Role: `SECURITY_ADMIN`)
@@ -159,3 +184,12 @@ bun run start:prod
 ```
 The server will start on port 4000 (configurable via `PORT` in `.env`).
 OpenAPI Swagger UI will be live at `http://localhost:4000/api/docs`.
+
+## 5. Production Release Runbook
+
+1. Provision PostgreSQL with automated backups and a tested restore procedure. Set `DATABASE_URL` using a secret manager; do not commit `.env` files.
+2. Set `NODE_ENV=production`, a public HTTPS `FRONTEND_URL`, `COOKIE_SECURE=true`, strong unique JWT secrets of at least 32 characters, `MAIL_PROVIDER=resend`, `MAIL_FROM`, and `RESEND_API_KEY`.
+3. Build and deploy the backend artifact, then run `npx prisma migrate deploy` as a release step before starting the server. Never run the seed command with demo users in production.
+4. Build and deploy the frontend with `VITE_API_BASE_URL` pointing at the HTTPS API. Configure the reverse proxy to forward `/api` and preserve secure cookies.
+5. Verify `GET /api/v1/health` reports `status: "ok"` and `database: "connected"`; verify registration, email verification, login, refresh, logout, vault recovery, and account-deletion scheduling in staging.
+6. Alert on non-2xx health responses, migration failures, email delivery failures, database backup failures, and sustained 429/5xx responses. Keep the previous application artifact available for rollback; do not roll back a migration without a reviewed database procedure.

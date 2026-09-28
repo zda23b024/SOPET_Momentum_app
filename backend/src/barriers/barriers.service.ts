@@ -3,7 +3,8 @@ import { PrismaService } from '../database/prisma.service';
 import { ActionsService } from '../actions/actions.service';
 import { AuditService } from '../audit/audit.service';
 import { BlockActionDto, ConfirmBarrierDto } from './dto/barriers.dto';
-import { ActionStatus, BarrierCategoryCode } from '@prisma/client';
+import { ActionStatus, BarrierCategoryCode, ContentEncoding, Prisma } from '@prisma/client';
+import { PRIVATE_FIELDS, validateEncryptedContent } from '../common/privacy/content-envelope';
 
 @Injectable()
 export class BarriersService {
@@ -17,6 +18,8 @@ export class BarriersService {
 
   async blockActionAndRecordExplanation(userId: string, actionId: string, dto: BlockActionDto) {
     const action = await this.actionsService.getActionById(userId, actionId);
+    if (action.goal?.privacyMode !== 'STANDARD_PRIVATE' && dto.contentEncoding !== ContentEncoding.CLIENT_ENCRYPTED) throw new ForbiddenException({ code: 'PRIVACY_MODE_MISMATCH' });
+    validateEncryptedContent(dto as unknown as Record<string, unknown>, PRIVATE_FIELDS.barrier);
 
     // Update action status to BLOCKED
     await this.actionsService.updateActionStatus(userId, actionId, {
@@ -32,7 +35,9 @@ export class BarriersService {
           id: barrierId,
           actionId,
           categoryCode: BarrierCategoryCode.OTHER_UNSURE, // provisional until confirmed
-          userExplanation: dto.userExplanation,
+          userExplanation: dto.contentEncoding === ContentEncoding.CLIENT_ENCRYPTED ? null : dto.userExplanation,
+          contentEncoding: dto.contentEncoding ?? ContentEncoding.PLAINTEXT,
+          encryptedPayload: dto.encryptedPayload as Prisma.InputJsonValue,
           isClientEncrypted: dto.isClientEncrypted ?? false,
           ciphertextExplanation: dto.ciphertextExplanation,
           encryptionMetadata: dto.encryptionMetadata,
@@ -70,17 +75,10 @@ export class BarriersService {
 
     if (this.prisma.isConnected) {
       return await this.prisma.$transaction(async (tx) => {
-        const barrier = await tx.barrier.create({
-          data: {
-            id: barrierId,
-            actionId,
-            categoryCode: dto.confirmedCategory,
-            aiSuggestedCategory: dto.aiSuggestedCategory,
-            userConfirmationState: dto.userConfirmationState || 'CONFIRMED',
-            userExplanation: 'Barrier confirmed through ACIF protocol',
-          },
-          include: { definition: true },
-        });
+        const pending = await tx.barrier.findFirst({ where: { actionId, userConfirmationState: 'PENDING' }, orderBy: { createdAt: 'desc' } });
+        const barrier = pending
+          ? await tx.barrier.update({ where: { id: pending.id }, data: { categoryCode: dto.confirmedCategory, aiSuggestedCategory: dto.aiSuggestedCategory, userConfirmationState: dto.userConfirmationState || 'CONFIRMED' }, include: { definition: true } })
+          : await tx.barrier.create({ data: { id: barrierId, actionId, categoryCode: dto.confirmedCategory, aiSuggestedCategory: dto.aiSuggestedCategory, userConfirmationState: dto.userConfirmationState || 'CONFIRMED', userExplanation: 'Barrier confirmed through ACIF protocol' }, include: { definition: true } });
 
         // If intervention selected, link it
         if (dto.selectedInterventionCode) {

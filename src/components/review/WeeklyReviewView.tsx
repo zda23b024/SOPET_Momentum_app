@@ -1,3 +1,5 @@
+import { ProductionReview } from './ProductionReview';
+import { isDemoMode } from '../../services/api';
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -31,32 +33,16 @@ export const WeeklyReviewView: React.FC = () => {
 
   // Form states for inline review
   const [step, setStep] = useState<number>(1);
-  const [meaningfulProgress, setMeaningfulProgress] = useState(
-    'Conducted 2 customer discovery phone interviews with corporate event planners and validated core lunch package interest.'
-  );
-  const [actionsThatMattered, setActionsThatMattered] = useState(
-    'Direct outreach phone calls created real traction. Spending 3 hours reformatting spreadsheet colors was an avoidant distractor.'
-  );
-  const [whatGotInTheWay, setWhatGotInTheWay] = useState(
-    'Cognitive overwhelm when looking at commercial kitchen lease requirements and licensing paperwork.'
-  );
-  const [interventionsThatHelped, setInterventionsThatHelped] = useState(
-    'Minimum Meaningful Action (MMA): Drafting just 5 interview questions on an index card broke the avoidance cycle.'
-  );
-  const [interventionsThatDidNotHelp, setInterventionsThatDidNotHelp] = useState(
-    'Generic to-do lists without a scheduled start time.'
-  );
+  const [meaningfulProgress, setMeaningfulProgress] = useState(isDemoMode ? 'Conducted 2 customer discovery phone interviews with corporate event planners and validated core lunch package interest.' : '');
+  const [actionsThatMattered, setActionsThatMattered] = useState(isDemoMode ? 'Direct outreach phone calls created real traction. Spending 3 hours reformatting spreadsheet colors was an avoidant distractor.' : '');
+  const [whatGotInTheWay, setWhatGotInTheWay] = useState(isDemoMode ? 'Cognitive overwhelm when looking at commercial kitchen lease requirements and licensing paperwork.' : '');
+  const [interventionsThatHelped, setInterventionsThatHelped] = useState(isDemoMode ? 'Minimum Meaningful Action (MMA): Drafting just 5 interview questions on an index card broke the avoidance cycle.' : '');
+  const [interventionsThatDidNotHelp, setInterventionsThatDidNotHelp] = useState(isDemoMode ? 'Generic to-do lists without a scheduled start time.' : '');
   const [interruptionExperienced, setInterruptionExperienced] = useState(false);
   const [restartDetails, setRestartDetails] = useState('');
-  const [lessonText, setLessonText] = useState(
-    'When administrative tasks feel vast, starting with a 15-minute Minimum Meaningful Action restores momentum immediately.'
-  );
-  const [adjustmentText, setAdjustmentText] = useState(
-    'Schedule discovery interviews in protected morning slots (Tue/Thu) rather than late afternoon.'
-  );
-  const [nextNmaTitle, setNextNmaTitle] = useState(
-    'Interview three catering clients about seasonal holiday corporate lunch preferences'
-  );
+  const [lessonText, setLessonText] = useState(isDemoMode ? 'When administrative tasks feel vast, starting with a 15-minute Minimum Meaningful Action restores momentum immediately.' : '');
+  const [adjustmentText, setAdjustmentText] = useState(isDemoMode ? 'Schedule discovery interviews in protected morning slots (Tue/Thu) rather than late afternoon.' : '');
+  const [nextNmaTitle, setNextNmaTitle] = useState(isDemoMode ? 'Interview three catering clients about seasonal holiday corporate lunch preferences' : '');
 
   const handleInlineSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,8 +59,8 @@ export const WeeklyReviewView: React.FC = () => {
       interventionsThatDidNotHelp,
       interruptionExperienced,
       restartDetails: interruptionExperienced ? restartDetails : undefined,
-      aiSummaryDraft: 'Validated key customer pricing hypothesis; overcame administrative overwhelm via micro-action scoping.',
-      aiSummaryConfirmed: true,
+      aiSummaryDraft: isDemoMode ? 'Validated key customer pricing hypothesis; overcame administrative overwhelm via micro-action scoping.' : '',
+      aiSummaryConfirmed: isDemoMode,
       lessonText,
       adjustmentText,
       nextNmaTitle,
@@ -84,6 +70,7 @@ export const WeeklyReviewView: React.FC = () => {
     setActiveTab('history');
   };
 
+  if (!isDemoMode) return <ProductionReview />;
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Header Banner */}
@@ -91,7 +78,7 @@ export const WeeklyReviewView: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-[#C5A034]" />
-            <span className="text-xs uppercase font-bold tracking-wider text-[#4B9C91]">
+            <span className="text-xs uppercase font-bold tracking-wider text-teal-700">
               Momentum Reflection Cycle
             </span>
           </div>
@@ -109,15 +96,15 @@ export const WeeklyReviewView: React.FC = () => {
         {/* Quick Review Stats */}
         <div className="grid grid-cols-3 gap-3 pt-2 text-xs border-t border-[#155A8A]/50">
           <div>
-            <span className="text-[10px] text-gray-400 block uppercase font-semibold">Reviews Completed</span>
+            <span className="text-[10px] text-gray-500 block uppercase font-semibold">Reviews Completed</span>
             <span className="text-lg font-bold text-white">{weeklyReviews.length}</span>
           </div>
           <div>
-            <span className="text-[10px] text-gray-400 block uppercase font-semibold">Continuity</span>
-            <span className="text-lg font-bold text-[#4B9C91]">{kpis.continuityWeeks} Weeks</span>
+            <span className="text-[10px] text-gray-500 block uppercase font-semibold">Continuity</span>
+            <span className="text-lg font-bold text-teal-700">{kpis.continuityWeeks} Weeks</span>
           </div>
           <div>
-            <span className="text-[10px] text-gray-400 block uppercase font-semibold">Lessons Extracted</span>
+            <span className="text-[10px] text-gray-500 block uppercase font-semibold">Lessons Extracted</span>
             <span className="text-lg font-bold text-[#C5A034]">{lessons.length} Insights</span>
           </div>
         </div>
@@ -131,7 +118,8 @@ export const WeeklyReviewView: React.FC = () => {
           { id: 'lessons', label: `Lessons & Adjustments (${lessons.length})`, icon: Lightbulb },
         ].map(tab => {
           const Icon = tab.icon;
-          return (
+          if (!isDemoMode) return <ProductionReview />;
+  return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
@@ -193,11 +181,11 @@ export const WeeklyReviewView: React.FC = () => {
             {step === 1 && (
               <div className="space-y-4 animate-in fade-in duration-150">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-gray-800 flex items-center gap-1.5 text-xs">
+                  <label className="font-bold text-gray-800 flex items-center gap-1.5 text-xs" htmlFor="field-weeklyreviewview-meaningfulProgress">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     <span>1. What meaningful progress was made this week?</span>
                   </label>
-                  <textarea
+                  <textarea id="field-weeklyreviewview-meaningfulProgress"
                     rows={3}
                     required
                     value={meaningfulProgress}
@@ -208,11 +196,11 @@ export const WeeklyReviewView: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-gray-800 flex items-center gap-1.5 text-xs">
+                  <label className="font-bold text-gray-800 flex items-center gap-1.5 text-xs" htmlFor="field-weeklyreviewview-actionsThatMattered">
                     <Target className="w-4 h-4 text-[#155A8A]" />
                     <span>2. Which actions really mattered, and which did not?</span>
                   </label>
-                  <textarea
+                  <textarea id="field-weeklyreviewview-actionsThatMattered"
                     rows={2}
                     required
                     value={actionsThatMattered}
@@ -239,11 +227,11 @@ export const WeeklyReviewView: React.FC = () => {
             {step === 2 && (
               <div className="space-y-4 animate-in fade-in duration-150">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-gray-800 flex items-center gap-1.5 text-xs">
+                  <label className="font-bold text-gray-800 flex items-center gap-1.5 text-xs" htmlFor="field-weeklyreviewview-whatGotInTheWay">
                     <AlertOctagon className="w-4 h-4 text-amber-600" />
                     <span>3. What got in the way (internal resistance, external obstacles)?</span>
                   </label>
-                  <textarea
+                  <textarea id="field-weeklyreviewview-whatGotInTheWay"
                     rows={2}
                     required
                     value={whatGotInTheWay}
@@ -254,14 +242,14 @@ export const WeeklyReviewView: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-gray-800 flex items-center gap-1.5 text-xs">
-                    <Sparkles className="w-4 h-4 text-[#4B9C91]" />
+                  <label className="font-bold text-gray-800 flex items-center gap-1.5 text-xs" htmlFor="field-weeklyreviewview-interventionsThatHelped">
+                    <Sparkles className="w-4 h-4 text-teal-700" />
                     <span>4. What intervention helped, and what did not help?</span>
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <span className="text-[11px] font-semibold text-emerald-800 block mb-1">What helped:</span>
-                      <textarea
+                      <textarea id="field-weeklyreviewview-interventionsThatHelped"
                         rows={2}
                         value={interventionsThatHelped}
                         onChange={e => setInterventionsThatHelped(e.target.value)}
@@ -345,10 +333,10 @@ export const WeeklyReviewView: React.FC = () => {
                     <span className="font-bold text-[#0E3C5B]">Continuous Learning Synthesis</span>
                   </div>
                   <div>
-                    <label className="font-semibold text-gray-700 block mb-1">
+                    <label className="font-semibold text-gray-700 block mb-1" htmlFor="field-weeklyreviewview-lessonText">
                       Personal Lesson (what you discovered about your work rhythm):
                     </label>
-                    <textarea
+                    <textarea id="field-weeklyreviewview-lessonText"
                       rows={2}
                       required
                       value={lessonText}
@@ -357,10 +345,10 @@ export const WeeklyReviewView: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="font-semibold text-gray-700 block mb-1">
+                    <label className="font-semibold text-gray-700 block mb-1" htmlFor="field-weeklyreviewview-adjustmentText">
                       Concrete Adjustment (what you will change next week):
                     </label>
-                    <input
+                    <input id="field-weeklyreviewview-adjustmentText"
                       type="text"
                       required
                       value={adjustmentText}
@@ -371,14 +359,14 @@ export const WeeklyReviewView: React.FC = () => {
                 </div>
 
                 <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-200 space-y-2">
-                  <label className="font-bold text-[#0E3C5B] flex items-center gap-1.5">
+                  <label className="font-bold text-[#0E3C5B] flex items-center gap-1.5" htmlFor="field-weeklyreviewview-nextNmaTitle">
                     <Target className="w-4 h-4 text-[#C5A034]" />
                     <span>Establish Next Meaningful Action (NMA) for Next Week</span>
                   </label>
                   <p className="text-[11px] text-gray-600">
                     A single concrete, physical, observable action that will serve as your primary focus.
                   </p>
-                  <input
+                  <input id="field-weeklyreviewview-nextNmaTitle"
                     type="text"
                     required
                     value={nextNmaTitle}

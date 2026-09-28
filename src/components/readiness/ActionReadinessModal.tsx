@@ -35,8 +35,8 @@ export const ActionReadinessModal: React.FC = () => {
 
   const isReady = output === 'Ready';
 
-  const handleConfirmReady = () => {
-    submitReadinessCheck(
+  const handleConfirmReady = async () => {
+    const saved = await submitReadinessCheck(
       action.id,
       {
         q1Understand: q1,
@@ -48,11 +48,11 @@ export const ActionReadinessModal: React.FC = () => {
       output,
       notes
     );
-    startAction(action.id);
+    if (saved) startAction(action.id);
   };
 
-  const handleReviewConcern = () => {
-    submitReadinessCheck(
+  const handleReviewConcern = async () => {
+    const saved = await submitReadinessCheck(
       action.id,
       {
         q1Understand: q1,
@@ -64,7 +64,7 @@ export const ActionReadinessModal: React.FC = () => {
       output,
       notes
     );
-    openBarrierReview(action.id);
+    if (saved) openBarrierReview(action.id);
   };
 
   return (
@@ -73,7 +73,7 @@ export const ActionReadinessModal: React.FC = () => {
         {/* Header */}
         <div className="bg-[#0E3C5B] text-white p-5 flex items-center justify-between">
           <div>
-            <span className="text-[11px] uppercase tracking-wider font-semibold text-[#4B9C91]">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-teal-700">
               Pre-Action Diagnostic
             </span>
             <h2 className="text-lg font-bold">Action Readiness Check</h2>
@@ -206,10 +206,10 @@ export const ActionReadinessModal: React.FC = () => {
 
           {/* Optional notes */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
+            <label className="block text-xs font-medium text-gray-600 mb-1" htmlFor="field-actionreadinessmodal-notes">
               Readiness Notes (Optional)
             </label>
-            <input
+            <input id="field-actionreadinessmodal-notes"
               type="text"
               value={notes}
               onChange={e => setNotes(e.target.value)}

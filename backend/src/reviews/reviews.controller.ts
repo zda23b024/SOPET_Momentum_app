@@ -36,4 +36,9 @@ export class ReviewsController {
   async getLessons(@CurrentUser() user: AuthenticatedUser) {
     return await this.reviewsService.getLessons(user.id);
   }
+
+  @Get('adjustments')
+  async getAdjustments(@CurrentUser() user: AuthenticatedUser) {
+    return this.reviewsService.getAdjustments(user.id);
+  }
 }

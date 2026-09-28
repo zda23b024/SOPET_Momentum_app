@@ -20,7 +20,13 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "prisma:studio": "prisma studio"
+    ,"production:check": "tsx scripts/production-check.ts"
+    ,"audit:verify": "tsx scripts/verify-audit-chain.ts"
+    ,"audit:checkpoint:init": "tsx scripts/init-audit-checkpoint.ts"
+    ,"audit:reanchor": "tsx scripts/reanchor-audit-history.ts"
+    ,"deletion:process-due": "tsx scripts/process-due-account-deletions.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

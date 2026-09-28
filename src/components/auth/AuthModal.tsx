@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { authApi, isDemoMode } from '../../services/api';
 import { X, Lock, Mail, ArrowRight, UserCheck, Shield } from 'lucide-react';
+import { BrandLogo } from '../common/BrandLogo';
+import { ProductionAuth } from './ProductionAuth';
 
 export const AuthModal: React.FC = () => {
   const {
@@ -11,33 +14,54 @@ export const AuthModal: React.FC = () => {
     setIsAuthenticated,
     openOnboarding,
     showToast,
-    logEvent
+    logEvent,
   } = useApp();
 
-  const [email, setEmail] = useState('amina.pilot@acosedutech.org');
+  const [email, setEmail] = useState(isDemoMode ? 'amina.pilot@acosedutech.org' : '');
   const [password, setPassword] = useState('••••••••••••');
-  const [name, setName] = useState('Amina');
+  const [name, setName] = useState(isDemoMode ? 'Amina' : '');
+  const [newPassword, setNewPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const resetToken = new URLSearchParams(window.location.search).get('resetPasswordToken');
+  useEffect(() => { if (!isDemoMode) setPassword(''); }, []);
 
+  if (!isDemoMode) return <ProductionAuth />;
   if (!isAuthModalOpen) return null;
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsAuthenticated(true);
-    closeAuthModal();
-    logEvent('USER_REGISTERED', { email, simulated: true });
-    showToast('Signed in successfully as Amina.', 'success');
+    try {
+      const result = await authApi.login(email, password);
+      if ('mfaRequired' in result) {
+        showToast('Multi-factor authentication is required.', 'warning');
+        return;
+      }
+      setIsAuthenticated(true);
+      closeAuthModal();
+      showToast('Signed in successfully.', 'success');
+      if (!isDemoMode) window.location.reload();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to sign in.', 'warning');
+    }
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsAuthenticated(true);
-    closeAuthModal();
-    openOnboarding();
-    logEvent('USER_REGISTERED', { name, email, simulated: true });
-    showToast('Account created. Welcome to SOPET Momentum Onboarding.', 'success');
+    try {
+      const result = await authApi.register(name, email, password);
+      if (result.verificationRequired) {
+        showToast('Account created. Check your email before signing in.', 'success');
+        openAuthModal('signin');
+      } else {
+        setIsAuthenticated(true); closeAuthModal(); openOnboarding();
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to create account.', 'warning');
+    }
   };
 
   const handleDemoOneClick = () => {
+    if (!isDemoMode) return;
     setIsAuthenticated(true);
     closeAuthModal();
     showToast('Signed in with Pilot Demo Account (Amina).', 'success');
@@ -48,17 +72,20 @@ export const AuthModal: React.FC = () => {
       <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden">
         {/* Header */}
         <div className="bg-[#0E3C5B] text-white p-5 flex items-center justify-between">
-          <div>
+          <div className="flex items-center gap-3">
+            <BrandLogo className="h-12 w-auto rounded bg-white p-1" />
+            <div>
             <h2 className="text-lg font-bold">
               {authModalMode === 'signin' && 'Sign In to SOPET Momentum'}
               {authModalMode === 'signup' && 'Create Your Momentum Account'}
               {authModalMode === 'forgot' && 'Account Recovery'}
             </h2>
             <p className="text-xs text-gray-300">
-              {authModalMode === 'signin' && 'Enter your credentials or use quick demo access'}
+              {authModalMode === 'signin' && (isDemoMode ? 'Enter your credentials or use quick demo access' : 'Sign in securely to continue')}
               {authModalMode === 'signup' && 'Begin your journey with one meaningful goal'}
               {authModalMode === 'forgot' && 'Reset your password securely'}
             </p>
+            </div>
           </div>
           <button
             onClick={closeAuthModal}
@@ -71,7 +98,7 @@ export const AuthModal: React.FC = () => {
 
         <div className="p-6 space-y-5">
           {/* Quick Demo Access banner for Evaluators */}
-          <div className="bg-[#EAF4FB] border border-[#155A8A]/30 rounded-xl p-3.5 flex items-center justify-between">
+          {isDemoMode && <div className="bg-[#EAF4FB] border border-[#155A8A]/30 rounded-xl p-3.5 flex items-center justify-between">
             <div className="text-xs">
               <span className="font-semibold text-[#0E3C5B] block">Interactive Evaluator Access</span>
               <span className="text-gray-600">Pre-configured with Amina's catering business goal</span>
@@ -82,15 +109,15 @@ export const AuthModal: React.FC = () => {
             >
               Sign In as Amina
             </button>
-          </div>
+          </div>}
 
           {authModalMode === 'signin' && (
             <form onSubmit={handleSignIn} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Email Address</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="field-authmodal-email">Email Address</label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-                  <input
+                  <input id="field-authmodal-email"
                     type="email"
                     required
                     value={email}
@@ -147,20 +174,20 @@ export const AuthModal: React.FC = () => {
           {authModalMode === 'signup' && (
             <form onSubmit={handleSignUp} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Your Name</label>
-                <input
+                <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="field-authmodal-name">Your Name</label>
+                <input id="field-authmodal-name"
                   type="text"
                   required
                   value={name}
                   onChange={e => setName(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#155A8A]"
-                  placeholder="e.g. Amina"
+                  placeholder="Your name"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Email Address</label>
-                <input
+                <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="field-authmodal-email">Email Address</label>
+                <input id="field-authmodal-email"
                   type="email"
                   required
                   value={email}
@@ -170,8 +197,8 @@ export const AuthModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Password</label>
-                <input
+                <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="field-authmodal-password">Password</label>
+                <input id="field-authmodal-password"
                   type="password"
                   required
                   value={password}
@@ -181,7 +208,7 @@ export const AuthModal: React.FC = () => {
               </div>
 
               <div className="text-[11px] text-gray-500 bg-gray-50 p-2.5 rounded-lg border border-gray-100 flex items-start gap-2">
-                <Shield className="w-4 h-4 text-[#4B9C91] shrink-0 mt-0.5" />
+                <Shield className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
                 <span>
                   By continuing, you acknowledge that SOPET Momentum is a developmental execution tool, not clinical therapy.
                 </span>
@@ -211,26 +238,40 @@ export const AuthModal: React.FC = () => {
           {authModalMode === 'forgot' && (
             <div className="space-y-4">
               <p className="text-xs text-gray-600">
-                In this prototype, password recovery is simulated. Enter your email and click reset to simulate a secure link.
+                {resetToken ? 'Choose a new password for your account.' : 'Enter your email address. If an eligible account exists, recovery instructions will be sent.'}
               </p>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Email Address</label>
-                <input
+              {!resetToken && <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="field-authmodal-email">Email Address</label>
+                <input id="field-authmodal-email"
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none"
                 />
-              </div>
+              </div>}
+              {resetToken && <div><label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="field-authmodal-newPassword">New Password</label><input id="field-authmodal-newPassword" type="password" minLength={12} required value={newPassword} onChange={event => setNewPassword(event.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none" /></div>}
               <button
                 type="button"
-                onClick={() => {
-                  showToast('Password reset link sent (simulated).', 'info');
-                  openAuthModal('signin');
+                disabled={isSubmitting}
+                onClick={async () => {
+                  try {
+                    setIsSubmitting(true);
+                    if (resetToken) {
+                      await authApi.resetPassword(resetToken, newPassword);
+                      window.history.replaceState({}, '', window.location.pathname);
+                      showToast('Password reset successfully. Sign in with your new password.', 'success');
+                      openAuthModal('signin');
+                    } else {
+                      await authApi.forgotPassword(email);
+                      showToast('If an eligible account exists, recovery instructions will be sent.', 'info');
+                      openAuthModal('signin');
+                    }
+                  } catch (error) { showToast(error instanceof Error ? error.message : 'Unable to complete password recovery.', 'warning'); }
+                  finally { setIsSubmitting(false); }
                 }}
-                className="w-full bg-[#155A8A] text-white py-2.5 rounded-xl font-semibold text-sm"
+                className="w-full bg-[#155A8A] text-white py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50"
               >
-                Send Recovery Instructions
+                {resetToken ? 'Reset Password' : 'Send Recovery Instructions'}
               </button>
               <div className="text-center">
                 <button

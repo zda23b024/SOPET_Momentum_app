@@ -1,11 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { GoalsService } from '../goals/goals.service';
 
-export interface RecordKpiValueDto {
-  value: number;
-  notes?: string;
-}
+import { ContentEncoding, Prisma } from '@prisma/client';
+import { CreateKpiDto, RecordKpiValueDto } from './dto/kpi.dto';
+import { PRIVATE_FIELDS, validateEncryptedContent } from '../common/privacy/content-envelope';
 
 @Injectable()
 export class KpiService {
@@ -14,35 +13,47 @@ export class KpiService {
     private readonly goalsService: GoalsService,
   ) {}
 
+  async list(userId: string) {
+    if (!this.prisma.isConnected) return [];
+    return this.prisma.kPI.findMany({ where: { goal: { userId } }, include: { values: { orderBy: { recordedAt: 'desc' } } }, orderBy: { createdAt: 'asc' } });
+  }
+
+  async create(userId: string, dto: CreateKpiDto) {
+    const goal = await this.goalsService.getGoalById(userId, dto.goalId);
+    if (goal.privacyMode !== 'STANDARD_PRIVATE' && dto.contentEncoding !== ContentEncoding.CLIENT_ENCRYPTED) throw new ForbiddenException({ code: 'PRIVACY_MODE_MISMATCH' });
+    validateEncryptedContent(dto as unknown as Record<string, unknown>, PRIVATE_FIELDS.kpi);
+    return this.prisma.kPI.create({ data: { goalId: dto.goalId, name: dto.contentEncoding === ContentEncoding.CLIENT_ENCRYPTED ? null : dto.name, unit: dto.contentEncoding === ContentEncoding.CLIENT_ENCRYPTED ? null : dto.unit, targetValue: dto.targetValue, currentValue: dto.currentValue ?? 0, contentEncoding: dto.contentEncoding ?? ContentEncoding.PLAINTEXT, encryptedPayload: dto.encryptedPayload as Prisma.InputJsonValue } });
+  }
+
   async calculateUserMomentumKpis(userId: string) {
     if (this.prisma.isConnected) {
       const actions = await this.prisma.action.findMany({ where: { userId } });
       const completedActions = actions.filter((a) => a.status === 'COMPLETED').length;
       const totalActions = actions.length;
 
-      const actionCompletionRate = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 75;
+      const actionCompletionRate = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
 
       const barriers = await this.prisma.barrier.findMany({
         where: { action: { userId } },
       });
       const resolvedBarriers = barriers.filter((b) => b.resolved).length;
-      const barrierResolutionRate = barriers.length > 0 ? Math.round((resolvedBarriers / barriers.length) * 100) : 80;
+      const barrierResolutionRate = barriers.length > 0 ? Math.round((resolvedBarriers / barriers.length) * 100) : 0;
 
       const reviews = await this.prisma.weeklyReview.findMany({ where: { userId } });
-      const continuityWeeks = Math.max(4, reviews.length + 2);
+      const continuityWeeks = reviews.length;
 
       const restarts = await this.prisma.restart.findMany({
         where: { interruption: { goal: { userId } } },
       });
       const avgRestartDays = restarts.length > 0
         ? Number((restarts.reduce((acc, r) => acc + (r.daysElapsed || 2.0), 0) / restarts.length).toFixed(1))
-        : 1.8;
+        : 0;
 
       const milestones = await this.prisma.milestone.findMany({
         where: { goal: { userId } },
       });
       const completedMilestones = milestones.filter((m) => m.isCompleted).length;
-      const milestoneProgress = milestones.length > 0 ? Math.round((completedMilestones / milestones.length) * 100) : 33;
+      const milestoneProgress = milestones.length > 0 ? Math.round((completedMilestones / milestones.length) * 100) : 0;
 
       return {
         actionCompletionRate,
@@ -52,8 +63,8 @@ export class KpiService {
         barrierResolutionRate,
         goalMilestoneProgress: milestoneProgress,
         milestoneProgressPercent: milestoneProgress,
-        selfEfficacyScore: 4.2,
-        selfEfficacyTrend: 'Increasing',
+        selfEfficacyScore: 0,
+        selfEfficacyTrend: 'Stable',
         totalActions,
         completedActions,
         inProgressActions: actions.filter((a) => a.status === 'IN_PROGRESS').length,
@@ -96,13 +107,17 @@ export class KpiService {
       if (!kpi || kpi.goal.userId !== userId) {
         throw new NotFoundException('KPI not found or unauthorized');
       }
+      if (kpi.goal.privacyMode !== 'STANDARD_PRIVATE' && dto.contentEncoding !== ContentEncoding.CLIENT_ENCRYPTED) throw new ForbiddenException({ code: 'PRIVACY_MODE_MISMATCH' });
+      validateEncryptedContent(dto as unknown as Record<string, unknown>, PRIVATE_FIELDS.kpi);
 
       return await this.prisma.$transaction(async (tx) => {
         const val = await tx.kPIValue.create({
           data: {
             kpiId,
             value: dto.value,
-            notes: dto.notes,
+            notes: dto.contentEncoding === ContentEncoding.CLIENT_ENCRYPTED ? null : dto.notes,
+            contentEncoding: dto.contentEncoding ?? ContentEncoding.PLAINTEXT,
+            encryptedPayload: dto.encryptedPayload as Prisma.InputJsonValue,
           },
         });
 

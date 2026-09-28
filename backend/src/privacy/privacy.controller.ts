@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { PrivacyService, RegisterKeyDto } from './privacy.service';
+import { PrivacyService } from './privacy.service';
+import { SaveVaultMetadataDto } from './dto/vault.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
@@ -11,11 +12,11 @@ import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-use
 export class PrivacyController {
   constructor(private readonly privacyService: PrivacyService) {}
 
-  @Post('keys')
+  @Put('keys')
   @ApiOperation({ summary: 'Register client-wrapped encryption key metadata (never transmits raw private keys)' })
   async registerKey(
     @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: RegisterKeyDto,
+    @Body() dto: SaveVaultMetadataDto,
   ) {
     return await this.privacyService.registerKeyMetadata(user.id, dto);
   }

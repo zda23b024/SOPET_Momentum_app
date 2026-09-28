@@ -14,6 +14,7 @@ import { SessionsModule } from './sessions/sessions.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { GoalsModule } from './goals/goals.module';
 import { ActionsModule } from './actions/actions.module';
+import { MilestonesModule } from './milestones/milestones.module';
 import { ReadinessModule } from './readiness/readiness.module';
 import { BarriersModule } from './barriers/barriers.module';
 import { InterventionsModule } from './interventions/interventions.module';
@@ -25,6 +26,15 @@ import { KnowledgeBaseModule } from './knowledge-base/knowledge-base.module';
 import { AiModule } from './ai/ai.module';
 import { AdminModule } from './admin/admin.module';
 import { HealthModule } from './health/health.module';
+import { SharingModule } from './sharing/sharing.module';
+import { CsrfModule } from './csrf/csrf.module';
+import { APP_GUARD } from '@nestjs/core';
+import { CsrfGuard } from './csrf/csrf.guard';
+import { RateLimitModule } from './rate-limit/rate-limit.module';
+import { RateLimitInterceptor } from './rate-limit/rate-limit.interceptor';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ExportModule } from './export/export.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 
 @Module({
   imports: [
@@ -41,6 +51,7 @@ import { HealthModule } from './health/health.module';
     PrivacyModule,
     GoalsModule,
     ActionsModule,
+    MilestonesModule,
     ReadinessModule,
     BarriersModule,
     InterventionsModule,
@@ -52,6 +63,12 @@ import { HealthModule } from './health/health.module';
     AiModule,
     AdminModule,
     HealthModule,
+    SharingModule,
+    CsrfModule,
+    RateLimitModule,
+    ExportModule,
+    MonitoringModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: CsrfGuard }, { provide: APP_INTERCEPTOR, useClass: RateLimitInterceptor }],
 })
 export class AppModule {}

@@ -2,20 +2,23 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
+import cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { validateProductionEnvironment } from './config/configuration';
 
 async function bootstrap() {
+  validateProductionEnvironment();
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+  if (process.env.TRUST_PROXY === 'true') app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
   // Security Headers
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Allows Swagger UI and local development
+      contentSecurityPolicy: process.env.NODE_ENV === 'production',
     }),
   );
 
@@ -24,11 +27,14 @@ async function bootstrap() {
 
   // CORS configuration
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const allowedOrigins = process.env.NODE_ENV === 'production'
+    ? [frontendUrl]
+    : [frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:3000'];
   app.enableCors({
-    origin: [frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:3000'],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+    allowedHeaders: ['Content-Type', 'X-CSRF-Token', 'X-Request-ID'],
   });
 
   // Global Route Prefix
@@ -58,7 +64,6 @@ async function bootstrap() {
       'REST API specification for SOPET Momentum — Personal execution and developmental progress system by ACoS EduTech and Consultancy.',
     )
     .setVersion('1.0.0')
-    .addBearerAuth()
     .addTag('Authentication', 'Argon2id authentication, session issuance and token rotation')
     .addTag('Sessions', 'Device and session inspection and revocation')
     .addTag('Goals', 'Goal management with ownership isolation')
@@ -76,7 +81,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') SwaggerModule.setup('api/docs', app, document);
 
   const port = parseInt(process.env.PORT || '4000', 10);
   await app.listen(port);

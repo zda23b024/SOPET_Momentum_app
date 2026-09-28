@@ -2,6 +2,23 @@ import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
 
 export class CryptoUtil {
+  static generateTotpSecret(): string {
+    return crypto.randomBytes(20).toString('base64url');
+  }
+
+  static verifyTotp(secret: string, code: string, timestamp = Date.now()): boolean {
+    if (!/^\d{6}$/.test(code)) return false;
+    const counter = Math.floor(timestamp / 30000);
+    for (let offset = -1; offset <= 1; offset += 1) {
+      const digest = crypto.createHmac('sha1', Buffer.from(secret, 'base64url'))
+        .update(Buffer.from(BigInt(counter + offset).toString(16).padStart(16, '0'), 'hex'))
+        .digest();
+      const index = digest[digest.length - 1] & 0x0f;
+      const value = ((digest[index] & 0x7f) << 24) | (digest[index + 1] << 16) | (digest[index + 2] << 8) | digest[index + 3];
+      if (String(value % 1_000_000).padStart(6, '0') === code) return true;
+    }
+    return false;
+  }
   /**
    * Hashes a password using Argon2id with memoryCost=65536, timeCost=3, parallelism=1.
    */

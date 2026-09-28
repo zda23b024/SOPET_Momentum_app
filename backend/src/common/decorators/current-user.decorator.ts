@@ -8,6 +8,7 @@ export interface AuthenticatedUser {
   permissions: string[];
   sessionId?: string;
   privacyMode?: string;
+  mfaEnabled?: boolean;
 }
 
 export const CurrentUser = createParamDecorator(

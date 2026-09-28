@@ -2,7 +2,8 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { PrismaService } from '../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateActionDto, UpdateActionStatusDto, DesignateNmaDto } from './dto/actions.dto';
-import { ActionStatus } from '@prisma/client';
+import { ActionStatus, ContentEncoding, Prisma } from '@prisma/client';
+import { PRIVATE_FIELDS, validateEncryptedContent } from '../common/privacy/content-envelope';
 
 @Injectable()
 export class ActionsService {
@@ -40,6 +41,7 @@ export class ActionsService {
           goalId: goalId || undefined,
         },
         include: {
+          goal: { select: { privacyMode: true } },
           mmaChildActions: true,
           barriers: { include: { definition: true, interventions: { include: { intervention: true } } } },
           readinessAssessments: { orderBy: { assessedAt: 'desc' }, take: 1 },
@@ -59,6 +61,7 @@ export class ActionsService {
       action = await this.prisma.action.findUnique({
         where: { id: actionId },
         include: {
+          goal: { select: { privacyMode: true } },
           mmaChildActions: true,
           barriers: { include: { definition: true, interventions: { include: { intervention: true } } } },
           statusHistory: { orderBy: { changedAt: 'desc' } },
@@ -89,6 +92,10 @@ export class ActionsService {
       if (!goal || goal.userId !== userId) {
         throw new ForbiddenException('Goal not found or does not belong to user');
       }
+      if (goal.privacyMode !== 'STANDARD_PRIVATE' && dto.contentEncoding !== ContentEncoding.CLIENT_ENCRYPTED) {
+        throw new BadRequestException({ code: 'PRIVACY_MODE_MISMATCH', message: 'Protected Goal children must use client encryption.' });
+      }
+      validateEncryptedContent(dto as unknown as Record<string, unknown>, PRIVATE_FIELDS.action);
 
       // If marked as NMA, supersede previous NMA for this goal
       if (dto.isNMA) {
@@ -104,14 +111,18 @@ export class ActionsService {
           userId,
           goalId: dto.goalId,
           milestoneId: dto.milestoneId,
-          title: dto.title,
-          description: dto.description,
+          title: dto.contentEncoding === ContentEncoding.CLIENT_ENCRYPTED ? null : dto.title,
+          description: dto.contentEncoding === ContentEncoding.CLIENT_ENCRYPTED ? null : dto.description,
           isNMA: dto.isNMA ?? false,
           estimatedMinutes: dto.estimatedMinutes,
+          scheduledDate: dto.scheduledDate ? new Date(dto.scheduledDate) : undefined,
           status: ActionStatus.PENDING,
           isClientEncrypted: dto.isClientEncrypted ?? false,
           ciphertextPayload: dto.ciphertextPayload,
           encryptionMetadata: dto.encryptionMetadata,
+          contentEncoding: dto.contentEncoding ?? ContentEncoding.PLAINTEXT,
+          plaintextContent: dto.contentEncoding === ContentEncoding.CLIENT_ENCRYPTED ? undefined : dto.plaintextContent as Prisma.InputJsonValue,
+          encryptedPayload: dto.encryptedPayload as Prisma.InputJsonValue,
           statusHistory: {
             create: {
               oldStatus: ActionStatus.PENDING,
@@ -209,6 +220,12 @@ export class ActionsService {
     action.updatedAt = now;
     this.memoryActions.set(actionId, action);
     return action;
+  }
+
+  async reschedule(userId: string, actionId: string, scheduledDate: string) {
+    await this.getActionById(userId, actionId);
+    if (!this.prisma.isConnected) throw new BadRequestException('DATABASE_UNAVAILABLE');
+    return this.prisma.action.update({ where: { id: actionId }, data: { scheduledDate: new Date(scheduledDate) } });
   }
 
   async designateNMA(userId: string, actionId: string, dto?: DesignateNmaDto) {

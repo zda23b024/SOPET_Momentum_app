@@ -4,6 +4,7 @@ import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { PrivacyMode } from '@prisma/client';
+import { UpdateNotificationsDto, UpdateProfileDto } from './dto/account-settings.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -16,6 +17,21 @@ export class UsersController {
   @ApiOperation({ summary: 'Get current user profile and privacy configuration' })
   async getProfile(@CurrentUser() user: AuthenticatedUser) {
     return await this.usersService.getProfile(user.id);
+  }
+
+  @Patch('profile')
+  async updateProfile(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateProfileDto) {
+    return this.usersService.updateProfile(user.id, dto);
+  }
+
+  @Patch('notifications')
+  async updateNotifications(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateNotificationsDto) {
+    return this.usersService.updateNotifications(user.id, dto);
+  }
+
+  @Get('security-events')
+  async getSecurityEvents(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.getSecurityEvents(user.id);
   }
 
   @Patch('privacy-mode')
@@ -41,4 +57,8 @@ export class UsersController {
   async requestDeletion(@CurrentUser() user: AuthenticatedUser) {
     return await this.usersService.requestAccountDeletion(user.id);
   }
+
+  @Post('cancel-account-deletion')
+  @ApiOperation({ summary: 'Cancel the authenticated user\'s pending account deletion' })
+  async cancelDeletion(@CurrentUser() user: AuthenticatedUser) { return this.usersService.cancelAccountDeletion(user.id); }
 }

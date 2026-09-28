@@ -1,11 +1,12 @@
-import { IsString, IsEnum, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsBoolean, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { BarrierCategoryCode } from '@prisma/client';
+import { BarrierCategoryCode, ContentEncoding } from '@prisma/client';
 
 export class BlockActionDto {
-  @ApiProperty({ example: 'I feel completely overwhelmed looking at all 20 catering inquiries at once.' })
+  @ApiPropertyOptional({ example: 'I feel completely overwhelmed looking at all 20 catering inquiries at once.' })
+  @IsOptional()
   @IsString()
-  userExplanation: string;
+  userExplanation?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -21,6 +22,10 @@ export class BlockActionDto {
   @IsOptional()
   @IsString()
   encryptionMetadata?: string;
+  @ApiPropertyOptional({ enum: ContentEncoding }) @IsOptional() @IsEnum(ContentEncoding)
+  contentEncoding?: ContentEncoding;
+  @ApiPropertyOptional() @IsOptional() @IsObject()
+  encryptedPayload?: Record<string, unknown>;
 }
 
 export class ConfirmBarrierDto {

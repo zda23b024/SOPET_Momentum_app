@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { GeminiProvider } from './gemini.provider';
 import { PromptVersionService } from './prompt-version.service';
 import { KnowledgeRetrievalService } from './knowledge-retrieval.service';
@@ -10,6 +10,7 @@ import {
   RestartGuidanceRequest,
   SharpenNmaRequest,
 } from './ai.interface';
+import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
 export class AiService {
@@ -19,9 +20,43 @@ export class AiService {
     private readonly retrievalService: KnowledgeRetrievalService,
     private readonly safetyService: AiSafetyService,
     private readonly auditService: AiInteractionAuditService,
+    private readonly prisma: PrismaService,
   ) {}
 
-  async diagnoseBarrier(req: BarrierDiagnosisRequest, userId?: string, privacyMode?: string) {
+  private async authorize(
+    req: { goalId?: string; privacyMode?: string; consent?: boolean; purpose?: string; fieldsShared?: string[]; consentInteractionId?: string },
+    userId: string | undefined,
+    transmittedFields: string[],
+  ) {
+    let privacyMode = req.privacyMode ?? 'STANDARD_PRIVATE';
+    if (req.goalId) {
+      if (!userId || !this.prisma.isConnected) throw new ForbiddenException({ code: 'GOAL_ACCESS_DENIED' });
+      const goal = await this.prisma.goal.findFirst({ where: { id: req.goalId, userId }, select: { privacyMode: true } });
+      if (!goal) throw new ForbiddenException({ code: 'GOAL_ACCESS_DENIED' });
+      privacyMode = goal.privacyMode;
+    }
+    if (privacyMode !== 'STANDARD_PRIVATE') {
+      const declared = new Set(req.fieldsShared ?? []);
+      const valid = req.consent === true && Boolean(req.purpose?.trim()) && Boolean(req.consentInteractionId) &&
+        transmittedFields.every(field => declared.has(field));
+      if (!valid || !userId) {
+        throw new ForbiddenException({ code: 'AI_CONSENT_REQUIRED', message: 'Valid per-interaction consent is required.' });
+      }
+      if (this.prisma.isConnected) {
+        try {
+          await this.prisma.aIConsentReceipt.create({ data: {
+            id: req.consentInteractionId!, userId, goalId: req.goalId, purpose: req.purpose!, fieldsShared: req.fieldsShared!,
+          } });
+        } catch {
+          throw new ForbiddenException({ code: 'AI_CONSENT_ALREADY_USED', message: 'Consent cannot be reused.' });
+        }
+      }
+    }
+    return privacyMode;
+  }
+
+  async diagnoseBarrier(req: BarrierDiagnosisRequest, userId?: string) {
+    const privacyMode = await this.authorize(req, userId, ['actionTitle', 'userExplanation', ...(req.actionDescription ? ['actionDescription'] : []), ...(req.readinessAnswers ? ['readinessAnswers'] : [])]);
     // 1. Safety Check
     const safetyCheck = this.safetyService.validateInputSafety(req.userExplanation);
     if (safetyCheck.isCrisis) {
@@ -44,8 +79,7 @@ export class AiService {
       useCase: 'BARRIER_DIAGNOSIS',
       modelName: 'gemini-2.5-flash',
       promptVersion: '1.0',
-      inputPrompt: `${req.actionTitle} | ${req.userExplanation}`,
-      responsePayload: response,
+      goalId: req.goalId, consent: req.consent === true, fieldsShared: req.fieldsShared ?? [],
       latencyMs,
       privacyMode,
     });
@@ -58,7 +92,8 @@ export class AiService {
     };
   }
 
-  async suggestMma(req: MmaGenerationRequest, userId?: string, privacyMode?: string) {
+  async suggestMma(req: MmaGenerationRequest, userId?: string) {
+    const privacyMode = await this.authorize(req, userId, ['actionTitle', 'barrierCategoryCode', ...(req.userExplanation ? ['userExplanation'] : []), ...(req.targetMinutes ? ['targetMinutes'] : [])]);
     const start = Date.now();
     const systemPrompt = this.promptService.getMmaGenerationSystemPrompt('1.0');
     const context = await this.retrievalService.getAcifContext();
@@ -71,8 +106,7 @@ export class AiService {
       useCase: 'MMA_GENERATION',
       modelName: 'gemini-2.5-flash',
       promptVersion: '1.0',
-      inputPrompt: `${req.actionTitle} | ${req.barrierCategoryCode}`,
-      responsePayload: response,
+      goalId: req.goalId, consent: req.consent === true, fieldsShared: req.fieldsShared ?? [],
       latencyMs,
       privacyMode,
     });
@@ -85,7 +119,8 @@ export class AiService {
     };
   }
 
-  async suggestRestart(req: RestartGuidanceRequest, userId?: string, privacyMode?: string) {
+  async suggestRestart(req: RestartGuidanceRequest, userId?: string) {
+    const privacyMode = await this.authorize(req, userId, ['goalTitle', 'interruptionType', 'causeDescription', ...(req.daysElapsed ? ['daysElapsed'] : [])]);
     const start = Date.now();
     const systemPrompt = this.promptService.getRestartSystemPrompt('1.0');
     const context = await this.retrievalService.getAcifContext();
@@ -98,8 +133,7 @@ export class AiService {
       useCase: 'RESTART_GUIDANCE',
       modelName: 'gemini-2.5-flash',
       promptVersion: '1.0',
-      inputPrompt: `${req.goalTitle} | ${req.interruptionType}`,
-      responsePayload: response,
+      goalId: req.goalId, consent: req.consent === true, fieldsShared: req.fieldsShared ?? [],
       latencyMs,
       privacyMode,
     });
@@ -111,7 +145,8 @@ export class AiService {
     };
   }
 
-  async sharpenNma(req: SharpenNmaRequest, userId?: string, privacyMode?: string) {
+  async sharpenNma(req: SharpenNmaRequest, userId?: string) {
+    const privacyMode = await this.authorize(req, userId, ['draftTitle', 'goalTitle']);
     const start = Date.now();
     const systemPrompt = this.promptService.getNmaSharpeningSystemPrompt('1.0');
     const context = await this.retrievalService.getAcifContext();
@@ -124,8 +159,7 @@ export class AiService {
       useCase: 'NMA_SHARPENING',
       modelName: 'gemini-2.5-flash',
       promptVersion: '1.0',
-      inputPrompt: `${req.draftTitle} | ${req.goalTitle}`,
-      responsePayload: response,
+      goalId: req.goalId, consent: req.consent === true, fieldsShared: req.fieldsShared ?? [],
       latencyMs,
       privacyMode,
     });

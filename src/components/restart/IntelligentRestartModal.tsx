@@ -1,3 +1,4 @@
+import { isDemoMode } from '../../services/api';
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { RestartStrategy } from '../../types';
@@ -21,17 +22,13 @@ export const IntelligentRestartModal: React.FC = () => {
   } = useApp();
 
   const [isMeaningful, setIsMeaningful] = useState(true);
-  const [whatChanged, setWhatChanged] = useState(
-    'A client emergency and family commitments required full attention for 5 days, breaking the weekly interview cadence.'
-  );
+  const [whatChanged, setWhatChanged] = useState(isDemoMode ? 'A client emergency and family commitments required full attention for 5 days, breaking the weekly interview cadence.' : '');
   const [interruptionCause, setInterruptionCause] = useState<
     'Planned' | 'External' | 'Barrier-Driven' | 'Priority-Driven' | 'Meaning-Driven'
   >('External');
   const [isPlanRealistic, setIsPlanRealistic] = useState(true);
   const [strategy, setStrategy] = useState<RestartStrategy>('Reduce Action');
-  const [restartActionTitle, setRestartActionTitle] = useState(
-    'Schedule two 15-minute customer interviews for this Thursday'
-  );
+  const [restartActionTitle, setRestartActionTitle] = useState(isDemoMode ? 'Schedule two 15-minute customer interviews for this Thursday' : '');
   const [targetDate, setTargetDate] = useState(
     new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
   );
@@ -259,12 +256,12 @@ export const IntelligentRestartModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-semibold text-gray-700 block text-xs mb-1">
+                <label className="font-semibold text-gray-700 block text-xs mb-1" htmlFor="field-intelligentrestartmodal-targetDate">
                   Restart Target Date:
                 </label>
                 <div className="relative">
                   <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                  <input
+                  <input id="field-intelligentrestartmodal-targetDate"
                     type="date"
                     required
                     value={targetDate}

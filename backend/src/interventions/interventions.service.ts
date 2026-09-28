@@ -1,6 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ActionsService } from '../actions/actions.service';
+import { ContentEncoding, Prisma } from '@prisma/client';
+import { PRIVATE_FIELDS, validateEncryptedContent } from '../common/privacy/content-envelope';
+import { ApplyInterventionDto } from './dto/interventions.dto';
 
 @Injectable()
 export class InterventionsService {
@@ -44,10 +47,12 @@ export class InterventionsService {
     userId: string,
     actionId: string,
     interventionCode: string,
-    barrierId?: string,
-    outcomeNotes?: string,
+    barrierId: string | undefined,
+    dto: ApplyInterventionDto,
   ) {
-    await this.actionsService.getActionById(userId, actionId);
+    const action = await this.actionsService.getActionById(userId, actionId);
+    if (action.goal?.privacyMode !== 'STANDARD_PRIVATE' && dto.contentEncoding !== ContentEncoding.CLIENT_ENCRYPTED) throw new ForbiddenException({ code: 'PRIVACY_MODE_MISMATCH' });
+    validateEncryptedContent(dto as unknown as Record<string, unknown>, PRIVATE_FIELDS.intervention);
 
     if (this.prisma.isConnected) {
       const intv = await this.prisma.intervention.findUnique({
@@ -60,7 +65,9 @@ export class InterventionsService {
           actionId,
           barrierId,
           interventionId: intv.id,
-          outcomeNotes,
+          outcomeNotes: dto.contentEncoding === ContentEncoding.CLIENT_ENCRYPTED ? null : dto.outcomeNotes,
+          contentEncoding: dto.contentEncoding ?? ContentEncoding.PLAINTEXT,
+          encryptedPayload: dto.encryptedPayload as Prisma.InputJsonValue,
         },
         include: { intervention: true },
       });
@@ -70,7 +77,7 @@ export class InterventionsService {
       id: 'ai-' + Date.now(),
       actionId,
       interventionCode,
-      outcomeNotes,
+      outcomeNotes: dto.outcomeNotes,
       appliedAt: new Date(),
     };
   }

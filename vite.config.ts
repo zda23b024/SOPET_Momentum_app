@@ -2,7 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
-import {defineConfig, Plugin} from 'vite';
+import {defineConfig, loadEnv, Plugin} from 'vite';
 
 // LINT.IfChange(aistudio_media_plugin)
 function aistudioMediaPlugin(): Plugin {
@@ -64,7 +64,11 @@ function aistudioMediaPlugin(): Plugin {
 }
 // LINT.ThenChange(//depot/google3/java/com/google/alkali/boq/makersuite/applet_dev_service/templates/initializers/react_theme/vite.config.ts:aistudio_media_plugin)
 
-export default defineConfig(() => {
+export default defineConfig(({ command, mode }) => {
+  // Read the server-only setting from Vite's development environment files.
+  const developmentProxyTarget = command === 'serve' && mode === 'development'
+    ? loadEnv(mode, __dirname, 'DEV_API_PROXY_TARGET').DEV_API_PROXY_TARGET
+    : undefined;
   return {
     plugins: [react(), tailwindcss(), aistudioMediaPlugin()],
     resolve: {
@@ -73,6 +77,12 @@ export default defineConfig(() => {
       },
     },
     server: {
+      proxy: {
+        '/api': {
+          target: developmentProxyTarget || process.env.VITE_DEV_API_TARGET || 'http://localhost:4000',
+          changeOrigin: true,
+        },
+      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
