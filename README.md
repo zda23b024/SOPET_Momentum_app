@@ -1,6 +1,6 @@
-﻿# SOPET Momentum
+# SOPET Momentum
 
-[![CI](https://github.com/zda23b024/SOPET_Momentum_Demo/actions/workflows/ci.yml/badge.svg)](https://github.com/zda23b024/SOPET_Momentum_Demo/actions/workflows/ci.yml)
+[![CI](https://github.com/zda23b024/SOPET_Momentum_app/actions/workflows/ci.yml/badge.svg)](https://github.com/zda23b024/SOPET_Momentum_app/actions/workflows/ci.yml)
 
 SOPET Momentum helps people turn goals into meaningful actions, identify barriers, recover from interruptions, and reflect on progress. It is part of **The Soft Persona Tool (SOPET)** by **ACoS EduTech and Consultancy**.
 
