@@ -3,6 +3,7 @@ import test from 'node:test';
 import { buildGoalKeyMigration, MIGRATION_COLLECTIONS, migrateLegacyGoals, type GoalMigrationApi, type LegacyGoalMigrationSnapshot } from './legacyGoalMigration';
 import { createVault, decryptContent, encryptContent } from './vault';
 import { unwrapGoalKeyForOwner } from './goalKeys';
+import { fromBase64Url, toBase64Url } from './cryptoEncoding';
 
 const emptyRecords = () => Object.fromEntries(Object.keys(MIGRATION_COLLECTIONS).map(name => [name, []])) as LegacyGoalMigrationSnapshot['records'];
 
@@ -56,7 +57,11 @@ test('wrong vault key cannot migrate legacy content', async () => {
 test('tampered legacy ciphertext is rejected', async () => {
   const vault = await createVault('migration passphrase 123');
   const input = await snapshot(vault.dataKey);
-  input.goal!.encryptedPayload = { ...input.goal!.encryptedPayload!, ciphertext: `${input.goal!.encryptedPayload!.ciphertext.slice(0, -2)}aa` };
+  const envelope = input.goal!.encryptedPayload!;
+  const bytes = new Uint8Array(fromBase64Url(envelope.ciphertext));
+  // Flip an actual authentication-tag bit, not unused Base64 padding bits.
+  bytes[bytes.length - 1] ^= 1;
+  input.goal!.encryptedPayload = { ...envelope, ciphertext: toBase64Url(bytes) };
   await assert.rejects(() => buildGoalKeyMigration(input, vault.dataKey, 'user-1'));
 });
 

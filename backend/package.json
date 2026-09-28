@@ -68,6 +68,9 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.8.2"
   },
+  "overrides": {
+    "deepmerge-ts": "8.0.1"
+  },
   "jest": {
     "moduleFileExtensions": [
       "js",
