@@ -60,5 +60,8 @@
     "@rollup/rollup-win32-x64-msvc": "4.63.4",
     "@tailwindcss/oxide-win32-x64-msvc": "4.3.3",
     "lightningcss-win32-x64-msvc": "1.32.0"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.1"
   }
 }
