@@ -356,7 +356,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUser(null);
         setIsAuthenticated(false);
         const code = error instanceof Error ? error.message : 'AUTH_CHECK_FAILED';
-        if ((error instanceof ApiError && error.status === 401) || code === 'HTTP_401' || code === 'Unauthorized') { setAuthStatus('unauthenticated'); authRef.current = false; }
+        if ((error instanceof ApiError && error.status === 401) || code === 'HTTP_401' || code === 'Unauthorized') {
+          authRef.current = false;
+          setBackendUserId(null); setAuthError(null); setAuthStatus('unauthenticated');
+          vault.lock();
+          setGoals([]); setActions([]); setMilestones([]); setBarriers([]);
+          setWeeklyReviews([]); setLessons([]); setRestarts([]); setProductionKpis(null);
+        }
         else { setAuthStatus('error'); setAuthError('SOPET Momentum could not connect to the service. Please try again.'); }
       }).finally(() => { if (!cancelled) setDataLoading(false); });
     return () => { cancelled = true; };
@@ -366,7 +372,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const expire = () => {
       if (!authRef.current) return;
       signedOut.current = true; authRef.current = false;
-      vault.lock(); setUser(null); setIsAuthenticated(false); setSessionExpired(true);
+      vault.lock(); setUser(null); setBackendUserId(null); setAuthError(null); setIsAuthenticated(false); setSessionExpired(true);
       setAuthStatus('unauthenticated'); setGoals([]); setActions([]); setMilestones([]);
       setBarriers([]); setWeeklyReviews([]); setLessons([]); setRestarts([]);
       setIsCreateGoalOpen(false); setIsReadinessModalOpen(false); setIsBarrierReviewOpen(false);

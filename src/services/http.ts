@@ -44,7 +44,13 @@ async function send(path: string, init: RequestInit) {
 async function renewSession() {
   if (!refreshRequest) refreshRequest = (async () => {
     const response = await send('/auth/refresh', { method: 'POST', body: '{}' });
-    if (!response.ok) throw new ApiError(response.status, response.status === 401 ? 'Your session has expired. Sign in again to continue.' : 'Session renewal is unavailable. Please try again.');
+    // A rejected refresh means no valid session, not an unreachable service.
+    // Normalize only refresh responses; ordinary resource 403s remain forbidden.
+    if (response.status === 401 || response.status === 403) {
+      clearCsrfToken();
+      throw new ApiError(401, 'Your session has expired. Sign in again to continue.', 'SESSION_EXPIRED');
+    }
+    if (!response.ok) throw new ApiError(response.status, 'Session renewal is unavailable. Please try again.');
   })().finally(() => { refreshRequest = null; });
   return refreshRequest;
 }
