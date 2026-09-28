@@ -1,4 +1,4 @@
-﻿import { PrismaClient, UserRoleType } from '@prisma/client';
+import { PrismaClient, UserRoleType } from '@prisma/client';
 import { isEmail } from 'class-validator';
 import { CryptoUtil } from '../src/common/utils/crypto.util';
 
@@ -7,9 +7,12 @@ class ProvisionError extends Error {}
 export async function provisionSystemOwner(db: PrismaClient, env: NodeJS.ProcessEnv = process.env) {
   const email = env.PROVISION_SYSTEM_OWNER_EMAIL?.trim().toLowerCase();
   const password = env.PROVISION_SYSTEM_OWNER_PASSWORD;
+  const resetPassword = env.PROVISION_SYSTEM_OWNER_RESET_PASSWORD === 'true';
   if (!email || !password) throw new ProvisionError('Dedicated provisioning email and password are required.');
   if (!isEmail(email)) throw new ProvisionError('A valid provisioning email is required.');
-  if (password.length < 16 || password.length > 128 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^a-zA-Z0-9\s]/.test(password)) throw new ProvisionError('Password must be 16–128 characters with uppercase, lowercase, digit, and symbol.');
+  // Match the normal reset/change-password minimum in reset mode.
+  if (resetPassword && password.length < 12) throw new ProvisionError('New password must be at least 12 characters');
+  if (!resetPassword && (password.length < 16 || password.length > 128 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^a-zA-Z0-9\s]/.test(password))) throw new ProvisionError('Password must be 16–128 characters with uppercase, lowercase, digit, and symbol.');
   return db.$transaction(async tx => {
     // Serialize provisioning and other role assignments on the same database.
     await tx.$executeRawUnsafe('LOCK TABLE "UserRole" IN SHARE ROW EXCLUSIVE MODE');
@@ -18,6 +21,13 @@ export async function provisionSystemOwner(db: PrismaClient, env: NodeJS.Process
     const existing = users[0];
     const owners = await tx.userRole.findMany({ where: { role: { name: UserRoleType.SYSTEM_OWNER } }, select: { userId: true } });
     if (owners.some(owner => owner.userId !== existing?.id)) throw new ProvisionError('A different SYSTEM_OWNER already exists.');
+    if (resetPassword) {
+      if (!existing || !owners.some(owner => owner.userId === existing.id)) throw new ProvisionError('Password reset requires an existing SYSTEM_OWNER.');
+      const passwordHash = await CryptoUtil.hashPassword(password);
+      await tx.user.update({ where: { id: existing.id }, data: { passwordHash, isActive: true, isEmailVerified: true } });
+      await tx.session.updateMany({ where: { userId: existing.id }, data: { isRevoked: true } });
+      return 'password-reset';
+    }
     const role = await tx.role.upsert({ where: { name: UserRoleType.SYSTEM_OWNER }, update: {}, create: { name: UserRoleType.SYSTEM_OWNER, description: 'Platform system owner' } });
     if (existing && owners.length) {
       await tx.user.update({ where: { id: existing.id }, data: { isActive: true, isEmailVerified: true } });
