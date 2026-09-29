@@ -17,6 +17,14 @@ ALTER TYPE "UserRoleType" RENAME TO "UserRoleType_legacy";
 CREATE TYPE "UserRoleType" AS ENUM ('USER', 'ADMIN', 'OWNER');
 ALTER TABLE "Role" ALTER COLUMN "name" TYPE "UserRoleType" USING "name"::"UserRoleType";
 CREATE UNIQUE INDEX "Role_name_key" ON "Role"("name");
+-- Preserve sharing history while converting its role snapshot to the new enum.
+ALTER TABLE "GoalAccessGrant" ALTER COLUMN "granteeRoleSnapshot" TYPE "UserRoleType"
+USING (CASE
+  WHEN "granteeRoleSnapshot"::text = 'SYSTEM_OWNER' THEN 'OWNER'
+  WHEN "granteeRoleSnapshot"::text = 'USER' THEN 'USER'
+  WHEN "granteeRoleSnapshot" IS NULL THEN NULL
+  ELSE 'ADMIN'
+END)::"UserRoleType";
 DROP TYPE "UserRoleType_legacy";
 
 INSERT INTO "Role" ("id", "name", "description") VALUES
