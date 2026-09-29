@@ -441,12 +441,15 @@ export class AuthService {
 
   async beginMfaEnrollment(userId: string) {
     if (!this.prisma.isConnected) throw new BadRequestException('DATABASE_UNAVAILABLE');
-    const existing = await this.prisma.user.findUnique({ where: { id: userId }, select: { mfaEnabled: true } });
+    const existing = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, mfaEnabled: true } });
     if (!existing || existing.mfaEnabled) throw new BadRequestException('MFA is already enabled or the account is unavailable');
     const secret = CryptoUtil.generateTotpSecret();
     const updated = await this.prisma.user.updateMany({ where: { id: userId, mfaEnabled: false }, data: { mfaSecret: secret } });
     if (!updated.count) throw new BadRequestException('MFA is already enabled or the account is unavailable');
-    return { secret, issuer: 'SOPET Momentum' };
+    const issuer = 'SOPET Momentum';
+    const label = `${issuer}:${existing.email}`;
+    const parameters = new URLSearchParams({ secret, issuer, algorithm: 'SHA1', digits: '6', period: '30' });
+    return { secret, issuer, otpauthUri: `otpauth://totp/${encodeURIComponent(label)}?${parameters.toString()}` };
   }
 
   async confirmMfaEnrollment(userId: string, code: string) {

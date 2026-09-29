@@ -28,6 +28,33 @@ describe('MFA management', () => {
     return { user, prisma, audit, service: new AuthService(prisma, {} as any, {} as any, audit as any, {} as any, {} as any) };
   };
 
+  it('generates a 160-bit unpadded Base32 secret and verifies the RFC 6238 SHA1 vector', () => {
+    const secret = CryptoUtil.generateTotpSecret();
+    expect(secret).toMatch(/^[A-Z2-7]{32}$/);
+    expect(CryptoUtil.verifyTotp('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', '287082', 59000)).toBe(true);
+    expect(CryptoUtil.verifyTotp('not-base32!', '287082', 59000)).toBe(false);
+  });
+
+  it('replaces an unconfirmed enrollment secret and returns a standard authenticator URI', async () => {
+    const { service, user, prisma } = await createService();
+    user.mfaEnabled = false;
+    user.mfaSecret = 'OLDUNCONFIRMEDSECRET';
+    (user as typeof user & { email?: string }).email = 'owner@example.test';
+    prisma.user.findUnique.mockResolvedValueOnce({ mfaEnabled: false, email: 'owner@example.test' });
+    const enrollment = await service.beginMfaEnrollment('owner');
+    expect(enrollment.secret).toMatch(/^[A-Z2-7]{32}$/);
+    expect(enrollment.secret).not.toBe('OLDUNCONFIRMEDSECRET');
+    expect(user.mfaSecret).toBe(enrollment.secret);
+    expect(enrollment.otpauthUri).toMatch(/^otpauth:\/\/totp\//);
+    const uri = new URL(enrollment.otpauthUri);
+    expect(decodeURIComponent(uri.pathname.slice(1))).toBe('SOPET Momentum:owner@example.test');
+    expect(uri.searchParams.get('secret')).toBe(enrollment.secret);
+    expect(uri.searchParams.get('issuer')).toBe('SOPET Momentum');
+    expect(uri.searchParams.get('algorithm')).toBe('SHA1');
+    expect(uri.searchParams.get('digits')).toBe('6');
+    expect(uri.searchParams.get('period')).toBe('30');
+  });
+
   it('does not allow enrollment to disable existing MFA', async () => {
     const { service, prisma } = await createService();
     await expect(service.beginMfaEnrollment('owner')).rejects.toBeInstanceOf(BadRequestException);

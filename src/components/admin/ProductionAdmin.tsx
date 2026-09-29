@@ -12,6 +12,7 @@ import { WorkspaceState } from '../common/WorkspaceState';
 import { privacyLabels } from '../../i18n/strings';
 import { accountApi, AccountProfile } from '../../services/accountApi';
 import { adminPathForTab, adminTabFromPath, AdminTab } from '../../services/adminNavigation';
+import { QRCodeSVG } from 'qrcode.react';
 
 type Tab = AdminTab;
 type AdminUser = { id: string; email: string; fullName?: string; isActive: boolean; isEmailVerified: boolean; mfaEnabled: boolean; lastLoginAt?: string; userRoles: { role: { name: string } }[] };
@@ -46,6 +47,7 @@ export function ProductionAdmin() {
   const [sharingKeyExists, setSharingKeyExists] = useState<boolean | null>(null);
   const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(null);
   const [mfaSecret, setMfaSecret] = useState('');
+  const [mfaOtpauthUri, setMfaOtpauthUri] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[]>([]);
   const [mfaCodesSaved, setMfaCodesSaved] = useState(false);
@@ -141,7 +143,7 @@ export function ProductionAdmin() {
   const beginMfaEnrollment = async () => {
     if (busy) return;
     setBusy(true); setError('');
-    try { const result = await accountApi.enrollMfa(); setMfaSecret(result.secret); }
+    try { const result = await accountApi.enrollMfa(); setMfaSecret(result.secret); setMfaOtpauthUri(result.otpauthUri); }
     catch (e) { setError(e instanceof Error ? e.message : 'Unable to start MFA setup.'); }
     finally { setBusy(false); }
   };
@@ -151,7 +153,7 @@ export function ProductionAdmin() {
     setBusy(true); setError('');
     try {
       const result = await accountApi.confirmMfa(mfaCode);
-      setMfaRecoveryCodes(result.recoveryCodes); setMfaCodesSaved(false); setMfaSecret(''); setMfaCode('');
+      setMfaRecoveryCodes(result.recoveryCodes); setMfaCodesSaved(false); setMfaSecret(''); setMfaOtpauthUri(''); setMfaCode('');
       setAccountProfile(current => current ? { ...current, mfaEnabled: true } : current);
       showToast('MFA enabled. Save your recovery codes.', 'success');
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to confirm MFA setup.'); }
@@ -164,6 +166,7 @@ export function ProductionAdmin() {
     {loading ? <WorkspaceState loading title="Loading administration…" /> : <>
       {error && <p role="alert" className="error-notice">{error} <button className="underline" onClick={() => void load()}>Retry</button> {error.toLowerCase().includes('mfa') && <a className="underline font-semibold" href={adminPathForTab('security')}>Set up MFA</a>}</p>}
       {tab === 'security' && <section className="settings-card space-y-4"><h2 className="text-lg font-bold">Security / MFA</h2><p className="text-sm">Multi-factor authentication: <strong>{accountProfile?.mfaEnabled ? 'Enabled' : 'Not enabled'}</strong></p>{accountProfile && !accountProfile.mfaEnabled && <><p className="text-sm text-slate-600">MFA is required in production before protected administrative actions can be completed.</p>{!mfaSecret && <button disabled={busy} className="primary-button" onClick={() => void beginMfaEnrollment()}>Enable MFA</button>}</>}{mfaSecret && <form className="space-y-3" onSubmit={event => void confirmMfaEnrollment(event)}><p className="text-sm">Add this setup key to your authenticator app using your SOPET email address.</p><code className="block break-all rounded bg-slate-100 p-3 select-all">{mfaSecret}</code><label className="field-label">Authenticator code<input inputMode="numeric" autoComplete="one-time-code" required pattern="[0-9]{6}" value={mfaCode} onChange={event => setMfaCode(event.target.value)} /></label><button disabled={busy} className="primary-button">Confirm MFA</button></form>}{mfaRecoveryCodes.length > 0 && <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4"><h3 className="font-semibold">Save your MFA recovery codes</h3><div className="grid grid-cols-2 gap-2 font-mono text-sm">{mfaRecoveryCodes.map(code => <span className="break-all select-all" key={code}>{code}</span>)}</div><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={mfaCodesSaved} onChange={event => setMfaCodesSaved(event.target.checked)} />I saved these codes securely.</label><button disabled={!mfaCodesSaved} className="secondary-button" onClick={() => setMfaRecoveryCodes([])}>Hide recovery codes</button></div>}</section>}
+      {tab === 'security' && mfaOtpauthUri && <section className="settings-card space-y-3"><h3 className="text-lg font-bold">Scan with an authenticator app</h3><p className="text-sm text-slate-600">Scan this QR code, or enter the manual setup key shown above.</p><div className="w-fit rounded bg-white p-3"><QRCodeSVG value={mfaOtpauthUri} size={220} level="M" includeMargin /></div></section>}
       {tab === 'overview' && data && <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[['Active users',data.activeUsers],['Pending verification',data.pendingVerification],['Pending deletion',data.pendingDeletions],['Active admin accounts',data.activeAdmins],['Security events (24h)',data.recentSecurityEvents],['Locked accounts',data.lockedAccounts ?? 'Not tracked']].map(([label,value]) => <section key={String(label)} className="settings-card"><h2 className="text-sm font-semibold text-slate-600">{label}</h2><p className="text-2xl font-bold text-[#0E3C5B]">{value}</p></section>)}</div>
         <section className="settings-card space-y-3"><h2 className="text-lg font-bold">Your administrative access</h2><p className="text-sm">Roles: {roles.join(', ')}</p><p className="text-sm">Permissions: {permissions.join(', ')}</p><p className="text-sm">System: database {data.health?.database}; Redis {data.health?.redis}; email {data.health?.emailProvider}.</p><h3 className="font-semibold">Security checklist</h3><ul className="list-disc pl-5 text-sm"><li>Change your bootstrap password in Account & Privacy Settings.</li><li>Multi-factor authentication: {accountProfile?.mfaEnabled ? 'enabled' : 'not enabled — configure it before production administration'}.</li><li>Review active sessions and security events regularly.</li></ul><a className="secondary-button inline-block" href={adminPathForTab('security')}>Manage Security / MFA</a></section>

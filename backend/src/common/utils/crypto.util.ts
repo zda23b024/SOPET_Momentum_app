@@ -2,15 +2,32 @@ import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
 
 export class CryptoUtil {
+  private static readonly BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
   static generateTotpSecret(): string {
-    return crypto.randomBytes(20).toString('base64url');
+    const randomBytes = crypto.randomBytes(20);
+    let encoded = '';
+    let buffer = 0;
+    let bits = 0;
+    for (const byte of randomBytes) {
+      buffer = (buffer << 8) | byte;
+      bits += 8;
+      while (bits >= 5) {
+        bits -= 5;
+        encoded += this.BASE32_ALPHABET[(buffer >>> bits) & 31];
+      }
+    }
+    if (bits > 0) encoded += this.BASE32_ALPHABET[(buffer << (5 - bits)) & 31];
+    return encoded;
   }
 
   static verifyTotp(secret: string, code: string, timestamp = Date.now()): boolean {
     if (!/^\d{6}$/.test(code)) return false;
+    const key = this.decodeBase32(secret);
+    if (!key.length) return false;
     const counter = Math.floor(timestamp / 30000);
     for (let offset = -1; offset <= 1; offset += 1) {
-      const digest = crypto.createHmac('sha1', Buffer.from(secret, 'base64url'))
+      const digest = crypto.createHmac('sha1', key)
         .update(Buffer.from(BigInt(counter + offset).toString(16).padStart(16, '0'), 'hex'))
         .digest();
       const index = digest[digest.length - 1] & 0x0f;
@@ -18,6 +35,24 @@ export class CryptoUtil {
       if (String(value % 1_000_000).padStart(6, '0') === code) return true;
     }
     return false;
+  }
+
+  private static decodeBase32(secret: string): Buffer {
+    const normalized = secret.replace(/\s|=+/g, '').toUpperCase();
+    if (!/^[A-Z2-7]+$/.test(normalized) || [1, 3, 6].includes(normalized.length % 8)) return Buffer.alloc(0);
+    const decoded: number[] = [];
+    let buffer = 0;
+    let bits = 0;
+    for (const character of normalized) {
+      buffer = (buffer << 5) | this.BASE32_ALPHABET.indexOf(character);
+      bits += 5;
+      if (bits >= 8) {
+        bits -= 8;
+        decoded.push((buffer >>> bits) & 255);
+      }
+    }
+    if (bits > 0 && (buffer & ((1 << bits) - 1)) !== 0) return Buffer.alloc(0);
+    return Buffer.from(decoded);
   }
   /**
    * Hashes a password using Argon2id with memoryCost=65536, timeCost=3, parallelism=1.
