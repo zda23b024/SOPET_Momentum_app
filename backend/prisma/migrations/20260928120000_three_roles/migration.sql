@@ -11,12 +11,12 @@ FROM "User" u;
 DELETE FROM "UserRole";
 DELETE FROM "RolePermission";
 ALTER TABLE "Role" ALTER COLUMN "name" TYPE TEXT;
-ALTER TABLE "Role" DROP CONSTRAINT "Role_name_key";
+DROP INDEX "Role_name_key";
 DELETE FROM "Role";
 ALTER TYPE "UserRoleType" RENAME TO "UserRoleType_legacy";
 CREATE TYPE "UserRoleType" AS ENUM ('USER', 'ADMIN', 'OWNER');
 ALTER TABLE "Role" ALTER COLUMN "name" TYPE "UserRoleType" USING "name"::"UserRoleType";
-ALTER TABLE "Role" ADD CONSTRAINT "Role_name_key" UNIQUE ("name");
+CREATE UNIQUE INDEX "Role_name_key" ON "Role"("name");
 DROP TYPE "UserRoleType_legacy";
 
 INSERT INTO "Role" ("id", "name", "description") VALUES
