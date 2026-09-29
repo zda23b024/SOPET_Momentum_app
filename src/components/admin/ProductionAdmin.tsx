@@ -11,8 +11,9 @@ import { BrandLogo } from '../common/BrandLogo';
 import { WorkspaceState } from '../common/WorkspaceState';
 import { privacyLabels } from '../../i18n/strings';
 import { accountApi, AccountProfile } from '../../services/accountApi';
+import { adminPathForTab, adminTabFromPath, AdminTab } from '../../services/adminNavigation';
 
-type Tab = 'overview' | 'users' | 'roles' | 'deletions' | 'shared' | 'analytics' | 'security' | 'audit' | 'health';
+type Tab = AdminTab;
 type AdminUser = { id: string; email: string; fullName?: string; isActive: boolean; isEmailVerified: boolean; mfaEnabled: boolean; lastLoginAt?: string; userRoles: { role: { name: string } }[] };
 type AdminRole = { id: string; name: string; description: string; permissions: { permission: { code: string; description: string } }[] };
 export function ProductionAdmin() {
@@ -32,11 +33,11 @@ export function ProductionAdmin() {
     ...(permissions.includes('admin.deletions.view') ? [{ id: 'deletions' as const, label: 'Deletion Queue' }] : []),
     ...(canShare ? [{ id: 'shared' as const, label: 'Shared With Me' }] : []),
     ...(canMetrics ? [{ id: 'analytics' as const, label: 'Analytics' }] : []),
-    ...(canAudit && permissions.includes('security.events.view') ? [{ id: 'security' as const, label: 'Security' }] : []),
-    ...(canAudit ? [{ id: 'audit' as const, label: 'Audit' }] : []),
+    ...(canAudit ? [{ id: 'security' as const, label: 'Security / MFA' }] : []),
+    ...(canAudit && permissions.includes('admin.audit.view') ? [{ id: 'audit' as const, label: 'Audit Logs' }] : []),
     ...(permissions.includes('admin.health.view') ? [{ id: 'health' as const, label: 'System Health' }] : []),
   ];
-  const [tab, setTab] = useState<Tab>(tabs[0]?.id ?? 'overview');
+  const [tab, setTab] = useState<Tab>(() => adminTabFromPath(window.location.pathname) ?? tabs[0]?.id ?? 'overview');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,6 +45,10 @@ export function ProductionAdmin() {
   const [opened, setOpened] = useState<{ title: string; description: string; why: string; privacy: string } | null>(null);
   const [sharingKeyExists, setSharingKeyExists] = useState<boolean | null>(null);
   const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(null);
+  const [mfaSecret, setMfaSecret] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[]>([]);
+  const [mfaCodesSaved, setMfaCodesSaved] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -63,6 +68,10 @@ export function ProductionAdmin() {
       if (tab === 'shared') {
         const [grants,key] = await Promise.all([sharingApi.sharedWithMe(), sharingApi.ownKey()]);
         nextData = grants; nextSharingKeyExists = Boolean(key);
+      } else if (tab === 'security') {
+        nextProfile = await accountApi.profile();
+        try { nextData = permissions.includes('security.events.view') ? await apiRequest('/admin/security-events') : []; }
+        catch { nextData = []; }
       } else if (tab === 'overview') {
         const [overview, profile] = await Promise.all([apiRequest('/admin/overview'), accountApi.profile()]);
         nextData = overview; nextProfile = profile;
@@ -74,7 +83,7 @@ export function ProductionAdmin() {
         const [users, roleList, profile] = await Promise.all([apiRequest(`/admin/users?${parameters}`), apiRequest<AdminRole[]>('/admin/roles'), accountApi.profile()]);
         nextData = users; nextRoles = roleList; nextProfile = profile;
       }
-      else nextData = await apiRequest(tab === 'roles' ? '/admin/roles' : tab === 'deletions' ? '/admin/deletions' : tab === 'analytics' ? '/admin/metrics' : tab === 'security' ? '/admin/security-events' : tab === 'audit' ? '/admin/audit-logs' : '/admin/health');
+      else nextData = await apiRequest(tab === 'roles' ? '/admin/roles' : tab === 'deletions' ? '/admin/deletions' : tab === 'analytics' ? '/admin/metrics' : tab === 'audit' ? '/admin/audit-logs' : '/admin/health');
       if (version !== requestVersion.current) return;
       setData(nextData); setSharingKeyExists(nextSharingKeyExists); setAccountProfile(nextProfile); setAvailableRoles(nextRoles);
     } catch (e) { if (version === requestVersion.current) setError(e instanceof Error ? e.message : 'This section could not be loaded.'); }
@@ -129,15 +138,35 @@ export function ProductionAdmin() {
     } catch (e) { setError(e instanceof Error && !/^[A-Z_]+$/.test(e.message) ? e.message : 'This Goal could not be opened. Verify your access and unlock your vault.'); }
     finally { setBusy(false); }
   };
+  const beginMfaEnrollment = async () => {
+    if (busy) return;
+    setBusy(true); setError('');
+    try { const result = await accountApi.enrollMfa(); setMfaSecret(result.secret); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Unable to start MFA setup.'); }
+    finally { setBusy(false); }
+  };
+  const confirmMfaEnrollment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true); setError('');
+    try {
+      const result = await accountApi.confirmMfa(mfaCode);
+      setMfaRecoveryCodes(result.recoveryCodes); setMfaCodesSaved(false); setMfaSecret(''); setMfaCode('');
+      setAccountProfile(current => current ? { ...current, mfaEnabled: true } : current);
+      showToast('MFA enabled. Save your recovery codes.', 'success');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to confirm MFA setup.'); }
+    finally { setBusy(false); }
+  };
   if (activeRole !== 'admin' || !tabs.length) return <WorkspaceState title="403 — Access restricted" description="Administration requires an authorized account and section permissions." />;
   return <div className="page-shell max-w-6xl">
     <header className="rounded-2xl bg-[#0E3C5B] p-6 text-white"><div className="flex items-center gap-3"><BrandLogo className="h-12 w-auto rounded bg-white p-1" /><div><h1 className="text-xl font-bold">SOPET Momentum Administration</h1><p className="text-sm text-slate-200">The Soft Persona Tool</p></div></div><p className="mt-4 text-sm text-slate-200">Account permissions determine the available sections. Private Goal content requires an explicit sharing grant.</p></header>
-    <nav aria-label="Administration" className="flex gap-2 overflow-x-auto pb-2">{tabs.map(item => <button key={item.id} aria-current={item.id === tab ? 'page' : undefined} className={`${item.id === tab ? 'primary-button' : 'secondary-button'} whitespace-nowrap`} onClick={() => { if (item.id === tab) { void load(); return; } requestVersion.current += 1; setLoading(true); setTab(item.id); }}>{item.label}</button>)}</nav>
+    <nav aria-label="Administration sections" className="flex gap-2 overflow-x-auto pb-2">{tabs.map(item => <a key={item.id} href={adminPathForTab(item.id)} aria-current={item.id === tab ? 'page' : undefined} className={`${item.id === tab ? 'primary-button' : 'secondary-button'} whitespace-nowrap`}>{item.label}</a>)}</nav>
     {loading ? <WorkspaceState loading title="Loading administration…" /> : <>
-      {error && <p role="alert" className="error-notice">{error} <button className="underline" onClick={() => void load()}>Retry</button></p>}
+      {error && <p role="alert" className="error-notice">{error} <button className="underline" onClick={() => void load()}>Retry</button> {error.toLowerCase().includes('mfa') && <a className="underline font-semibold" href={adminPathForTab('security')}>Set up MFA</a>}</p>}
+      {tab === 'security' && <section className="settings-card space-y-4"><h2 className="text-lg font-bold">Security / MFA</h2><p className="text-sm">Multi-factor authentication: <strong>{accountProfile?.mfaEnabled ? 'Enabled' : 'Not enabled'}</strong></p>{accountProfile && !accountProfile.mfaEnabled && <><p className="text-sm text-slate-600">MFA is required in production before protected administrative actions can be completed.</p>{!mfaSecret && <button disabled={busy} className="primary-button" onClick={() => void beginMfaEnrollment()}>Enable MFA</button>}</>}{mfaSecret && <form className="space-y-3" onSubmit={event => void confirmMfaEnrollment(event)}><p className="text-sm">Add this setup key to your authenticator app using your SOPET email address.</p><code className="block break-all rounded bg-slate-100 p-3 select-all">{mfaSecret}</code><label className="field-label">Authenticator code<input inputMode="numeric" autoComplete="one-time-code" required pattern="[0-9]{6}" value={mfaCode} onChange={event => setMfaCode(event.target.value)} /></label><button disabled={busy} className="primary-button">Confirm MFA</button></form>}{mfaRecoveryCodes.length > 0 && <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4"><h3 className="font-semibold">Save your MFA recovery codes</h3><div className="grid grid-cols-2 gap-2 font-mono text-sm">{mfaRecoveryCodes.map(code => <span className="break-all select-all" key={code}>{code}</span>)}</div><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={mfaCodesSaved} onChange={event => setMfaCodesSaved(event.target.checked)} />I saved these codes securely.</label><button disabled={!mfaCodesSaved} className="secondary-button" onClick={() => setMfaRecoveryCodes([])}>Hide recovery codes</button></div>}</section>}
       {tab === 'overview' && data && <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[['Active users',data.activeUsers],['Pending verification',data.pendingVerification],['Pending deletion',data.pendingDeletions],['Active admin accounts',data.activeAdmins],['Security events (24h)',data.recentSecurityEvents],['Locked accounts',data.lockedAccounts ?? 'Not tracked']].map(([label,value]) => <section key={String(label)} className="settings-card"><h2 className="text-sm font-semibold text-slate-600">{label}</h2><p className="text-2xl font-bold text-[#0E3C5B]">{value}</p></section>)}</div>
-        <section className="settings-card space-y-3"><h2 className="text-lg font-bold">Your administrative access</h2><p className="text-sm">Roles: {roles.join(', ')}</p><p className="text-sm">Permissions: {permissions.join(', ')}</p><p className="text-sm">System: database {data.health?.database}; Redis {data.health?.redis}; email {data.health?.emailProvider}.</p><h3 className="font-semibold">Security checklist</h3><ul className="list-disc pl-5 text-sm"><li>Change your bootstrap password in Account & Privacy Settings.</li><li>Multi-factor authentication: {accountProfile?.mfaEnabled ? 'enabled' : 'not enabled — configure it before production administration'}.</li><li>Review active sessions and security events regularly.</li></ul><a className="secondary-button inline-block" href="/">Open account settings from the account menu</a></section>
+        <section className="settings-card space-y-3"><h2 className="text-lg font-bold">Your administrative access</h2><p className="text-sm">Roles: {roles.join(', ')}</p><p className="text-sm">Permissions: {permissions.join(', ')}</p><p className="text-sm">System: database {data.health?.database}; Redis {data.health?.redis}; email {data.health?.emailProvider}.</p><h3 className="font-semibold">Security checklist</h3><ul className="list-disc pl-5 text-sm"><li>Change your bootstrap password in Account & Privacy Settings.</li><li>Multi-factor authentication: {accountProfile?.mfaEnabled ? 'enabled' : 'not enabled — configure it before production administration'}.</li><li>Review active sessions and security events regularly.</li></ul><a className="secondary-button inline-block" href={adminPathForTab('security')}>Manage Security / MFA</a></section>
       </div>}
       {tab === 'users' && roles.includes('OWNER') && <section className="settings-card"><h2>Create account</h2><form onSubmit={createUser} className="mb-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-5"><input required value={newUser.fullName} onChange={e => setNewUser({ ...newUser, fullName: e.target.value })} placeholder="Full name" className="rounded border p-2" /><input required type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="Email" className="rounded border p-2" /><input required minLength={12} type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} placeholder="Temporary password" className="rounded border p-2" /><select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })} className="rounded border p-2"><option value="USER">User</option><option value="ADMIN">Admin</option><option value="OWNER">Owner</option></select><button disabled={busy} className="primary-button">Create account</button></form></section>}
       {tab === 'users' && <section className="settings-card space-y-4"><h2 className="text-lg font-bold">User management</h2><form className="flex flex-wrap gap-2" onSubmit={event => { event.preventDefault(); void load(); }}><input aria-label="Search users" placeholder="Search email or name" maxLength={100} value={search} onChange={event => setSearch(event.target.value)} /><select aria-label="Filter by role" value={roleFilter} onChange={event => setRoleFilter(event.target.value)}><option value="">All roles</option>{availableRoles.map(role => <option key={role.id} value={role.name}>{role.name}</option>)}</select><select aria-label="Filter by status" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="unverified">Unverified</option></select><button className="secondary-button">Apply filters</button></form>

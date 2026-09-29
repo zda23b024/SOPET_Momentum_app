@@ -34,6 +34,7 @@ import { LegacyGoalMigrationRunner } from './components/privacy/LegacyGoalMigrat
 import { AiConsentProvider } from './context/ai/AiConsentContext';
 import { AuthLinkHandler } from './components/auth/AuthLinkHandler';
 import { BrandLogo } from './components/common/BrandLogo';
+import { isAdministrationPath } from './services/adminNavigation';
 
 const MainContent: React.FC = () => {
   const {
@@ -58,7 +59,7 @@ const MainContent: React.FC = () => {
     return isDemoMode ? <LandingPage /> : null;
   }
 
-  const administrationRoute = window.location.pathname === '/administration';
+  const administrationRoute = isAdministrationPath(window.location.pathname);
 
 
   return (
@@ -109,7 +110,7 @@ export default function App() {
     const icon = document.createElement('link'); icon.rel = 'icon'; icon.type = 'image/png'; icon.href = officialLogo; document.head.appendChild(icon);
     return () => { icon.remove(); };
   }, []);
-  if (!['/', '/index.html', '/administration'].includes(window.location.pathname)) return <WorkspaceState title="404 — Page not found" description="This page does not exist." action={<a className="primary-button" href="/">Return to SOPET Momentum</a>} />;
+  if (!['/', '/index.html'].includes(window.location.pathname) && !isAdministrationPath(window.location.pathname)) return <WorkspaceState title="404 — Page not found" description="This page does not exist." action={<a className="primary-button" href="/">Return to SOPET Momentum</a>} />;
   return (
     <PrivacyVaultProvider>
       <AiConsentProvider><AppProvider>

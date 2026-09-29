@@ -15,8 +15,14 @@ import {
   Menu,
   X,
   ExternalLink,
-  ChevronDown
+  ChevronDown,
+  Home,
+  Users,
+  KeyRound,
+  ScrollText,
+  Activity
 } from 'lucide-react';
+import { adminPathForTab, adminTabFromPath, isAdministrationPath } from '../../services/adminNavigation';
 
 export const Header: React.FC = () => {
   const vault = usePrivacyVault();
@@ -36,8 +42,9 @@ export const Header: React.FC = () => {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const isAdminArea = isAdministrationPath(window.location.pathname) && activeRole === 'admin';
   const navigate = (view: Parameters<typeof setActiveView>[0]) => {
-    if (window.location.pathname === '/administration') window.location.assign('/');
+    if (isAdminArea) window.location.assign(adminPathForTab(view === 'settings' ? 'security' : 'overview'));
     else setActiveView(view);
   };
 
@@ -49,6 +56,14 @@ export const Header: React.FC = () => {
     { id: 'notifications', label: 'Notifications', icon: Compass },
     { id: 'settings', label: 'Settings', icon: Settings },
   ] as const;
+  const adminNavItems = [
+    { tab: 'overview' as const, label: 'Administration Home', icon: Home },
+    { tab: 'users' as const, label: 'Users', icon: Users, permission: 'admin.users.view' },
+    { tab: 'roles' as const, label: 'Roles / Access', icon: KeyRound, permission: 'admin.users.view' },
+    { tab: 'audit' as const, label: 'Audit Logs', icon: ScrollText, permission: 'admin.audit.view' },
+    { tab: 'analytics' as const, label: 'System Metrics', icon: Activity, permission: 'admin.metrics.view' },
+    { tab: 'security' as const, label: 'Security / MFA', icon: ShieldCheck },
+  ].filter(item => !item.permission || user?.permissions?.includes(item.permission));
 
   return (
     <header className="bg-[#0E3C5B] text-white border-b border-[#155A8A] sticky top-0 z-40 shadow-sm">
@@ -77,8 +92,12 @@ export const Header: React.FC = () => {
 
           {/* Desktop Navigation */}
           {isAuthenticated && (
-            <nav className="hidden xl:flex items-center gap-1 bg-[#092B42]/60 p-1 rounded-xl border border-[#155A8A]/40">
-              {navItems.map(item => {
+            <nav aria-label={isAdminArea ? 'Administration navigation' : 'Main navigation'} className="hidden xl:flex max-w-[70vw] items-center gap-1 overflow-x-auto bg-[#092B42]/60 p-1 rounded-xl border border-[#155A8A]/40">
+              {isAdminArea ? adminNavItems.map(item => {
+                const Icon = item.icon;
+                const isActive = adminTabFromPath(window.location.pathname) === item.tab;
+                return <a key={item.tab} href={adminPathForTab(item.tab)} aria-current={isActive ? 'page' : undefined} className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition ${isActive ? 'bg-[#155A8A] text-white shadow-xs' : 'text-gray-300 hover:text-white hover:bg-white/5'}`}><Icon className="w-4 h-4" /><span>{item.label}</span></a>;
+              }) : navItems.map(item => {
                 const Icon = item.icon;
                 const isActive = activeView === item.id;
                 return (
@@ -99,7 +118,8 @@ export const Header: React.FC = () => {
                   </button>
                 );
               })}
-              {activeRole === 'admin' && <a
+              {isAdminArea && <a href="/" className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white hover:bg-white/5"><ExternalLink className="w-4 h-4" /><span>Back to User Dashboard</span></a>}
+              {!isAdminArea && activeRole === 'admin' && <a
                 href="/administration"
                 className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5"
               >
@@ -176,7 +196,7 @@ export const Header: React.FC = () => {
                       className="w-full flex items-center gap-2.5 px-4 py-2 hover:bg-gray-50 text-gray-700 text-left"
                     >
                       <Settings className="w-4 h-4 text-gray-500" />
-                      <span>Account &amp; Privacy Settings</span>
+                      <span>{isAdminArea ? 'Security & MFA' : 'Account & Privacy Settings'}</span>
                     </button>
 
                     {isDemoMode && <button
@@ -190,7 +210,7 @@ export const Header: React.FC = () => {
                       <span>Switch to {demoRole === 'admin' ? 'User' : 'Admin'} Mode</span>
                     </button>}
 
-                    {activeRole === 'admin' && <a href="/administration" className="block w-full px-4 py-2 text-left hover:bg-slate-50">Administration</a>}
+                    {activeRole === 'admin' && !isAdminArea && <a href="/administration" className="block w-full px-4 py-2 text-left hover:bg-slate-50">Administration</a>}
                     <div className="border-t border-gray-100 my-1"></div>
 
                     <button
@@ -230,7 +250,14 @@ export const Header: React.FC = () => {
       {/* Mobile Drawer Menu */}
       {isMobileMenuOpen && isAuthenticated && (
         <div id="mobile-navigation" className="xl:hidden bg-[#092B42] border-t border-[#155A8A] px-4 pt-3 pb-4 space-y-1">
-          {navItems.map(item => {
+          {isAdminArea ? <>
+            {adminNavItems.map(item => {
+              const Icon = item.icon;
+              const isActive = adminTabFromPath(window.location.pathname) === item.tab;
+              return <a key={item.tab} href={adminPathForTab(item.tab)} aria-current={isActive ? 'page' : undefined} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${isActive ? 'bg-[#155A8A] text-white' : 'text-gray-300 hover:bg-white/5'}`}><Icon className="w-4 h-4" /><span>{item.label}</span></a>;
+            })}
+            <a href="/" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-white hover:bg-white/5"><ExternalLink className="w-4 h-4" /><span>Back to User Dashboard</span></a>
+          </> : <>{navItems.map(item => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
             return (
@@ -252,7 +279,7 @@ export const Header: React.FC = () => {
               </button>
             );
           })}
-          {activeRole === 'admin' && <a
+          {activeRole === 'admin' && !isAdminArea && <a
             href="/administration"
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5"
           >
@@ -271,6 +298,7 @@ export const Header: React.FC = () => {
               <span>Settings &amp; Privacy</span>
             </button>
           </div>
+          </>}
         </div>
       )}
     </header>
