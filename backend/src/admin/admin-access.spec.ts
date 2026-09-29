@@ -15,8 +15,8 @@ describe('administration authorization and safety', () => {
   it('requires both an admin role and the dashboard/user permission', () => {
     const guard = new RolesGuard(new Reflector());
     expect(() => guard.canActivate(contextFor('getUsers', { roles: ['USER'], permissions: ['admin.dashboard.view', 'admin.users.view'] }))).toThrow(ForbiddenException);
-    expect(() => guard.canActivate(contextFor('getUsers', { roles: ['SYSTEM_OWNER'], permissions: ['admin.users.view'] }))).toThrow(ForbiddenException);
-    expect(guard.canActivate(contextFor('getUsers', { roles: ['SYSTEM_OWNER'], permissions: ['admin.dashboard.view', 'admin.users.view'], mfaEnabled: true }))).toBe(true);
+    expect(() => guard.canActivate(contextFor('getUsers', { roles: ['OWNER'], permissions: ['admin.users.view'] }))).toThrow(ForbiddenException);
+    expect(guard.canActivate(contextFor('getUsers', { roles: ['OWNER'], permissions: ['admin.dashboard.view', 'admin.users.view'], mfaEnabled: true }))).toBe(true);
   });
 
   it('requires MFA for production system owner administration', () => {
@@ -24,14 +24,14 @@ describe('administration authorization and safety', () => {
     process.env.NODE_ENV = 'production';
     try {
       const guard = new RolesGuard(new Reflector());
-      expect(() => guard.canActivate(contextFor('getUsers', { roles: ['SYSTEM_OWNER'], permissions: ['admin.dashboard.view', 'admin.users.view'], mfaEnabled: false }))).toThrow(ForbiddenException);
+      expect(() => guard.canActivate(contextFor('getUsers', { roles: ['OWNER'], permissions: ['admin.dashboard.view', 'admin.users.view'], mfaEnabled: false }))).toThrow(ForbiddenException);
     } finally { if (previous === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous; }
   });
 
   const setup = () => {
     const transaction: any = {
       $executeRawUnsafe: jest.fn(),
-      user: { findUnique: jest.fn().mockResolvedValue({ id: 'target', isActive: true, userRoles: [{ role: { name: UserRoleType.SYSTEM_OWNER } }] }), count: jest.fn().mockResolvedValue(1), update: jest.fn() },
+      user: { findUnique: jest.fn().mockResolvedValue({ id: 'target', isActive: true, userRoles: [{ role: { name: UserRoleType.OWNER } }] }), count: jest.fn().mockResolvedValue(1), update: jest.fn() },
       userRole: { upsert: jest.fn(), deleteMany: jest.fn() },
       session: { updateMany: jest.fn() },
     };
@@ -52,14 +52,14 @@ describe('administration authorization and safety', () => {
 
   it('rejects self role changes and the last active owner demotion', async () => {
     const { service, transaction } = setup();
-    await expect(service.changeUserRole('target', 'target', { role: UserRoleType.SYSTEM_OWNER, action: 'revoke' })).rejects.toThrow(ForbiddenException);
-    await expect(service.changeUserRole('actor', 'target', { role: UserRoleType.SYSTEM_OWNER, action: 'revoke' })).rejects.toThrow(ForbiddenException);
+    await expect(service.changeUserRole('target', 'target', { role: UserRoleType.OWNER, action: 'revoke' })).rejects.toThrow(ForbiddenException);
+    await expect(service.changeUserRole('actor', 'target', { role: UserRoleType.OWNER, action: 'revoke' })).rejects.toThrow(ForbiddenException);
     expect(transaction.userRole.deleteMany).not.toHaveBeenCalled();
   });
 
   it('assigns a permitted role and revokes stale sessions', async () => {
     const { service, transaction, audit } = setup();
-    await service.changeUserRole('actor', 'target', { role: UserRoleType.SUPPORT_ADMIN, action: 'assign' });
+    await service.changeUserRole('actor', 'target', { role: UserRoleType.ADMIN, action: 'assign' });
     expect(transaction.userRole.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { userId_roleId: { userId: 'target', roleId: 'role-id' } } }));
     expect(transaction.session.updateMany).toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'ADMIN_ROLE_ASSIGNED', targetId: 'target' }));

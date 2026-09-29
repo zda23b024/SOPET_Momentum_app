@@ -7,7 +7,7 @@ test('revoked admin loses server access', async () => {
     goalAccessGrant: { updateMany: jest.fn(), findFirst: jest.fn().mockResolvedValue(null) },
   };
   const service = new SharingService(prisma, { log: jest.fn() } as any);
-  const user: any = { id: 'admin-a', roles: ['SUPPORT_ADMIN'], permissions: ['goal.shared.view'] };
+  const user: any = { id: 'admin-a', roles: ['ADMIN'], permissions: ['goal.shared.view'] };
   await expect(service.getSharedGoal(user, 'goal-1')).rejects.toBeInstanceOf(ForbiddenException);
   expect(prisma.goalAccessGrant.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ granteeUserId: 'admin-a', status: 'ACTIVE' }) }));
 });

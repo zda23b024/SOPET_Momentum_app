@@ -120,20 +120,6 @@ export const Header: React.FC = () => {
               >
                 User Demo
               </button>
-              <button
-                onClick={() => {
-                  setDemoRole('admin'); setActiveView('admin');
-                  showToast('Switched to Administrator Demo view (ACIF Taxonomy & Governance).', 'info');
-                }}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition ${
-                  demoRole === 'admin'
-                    ? 'bg-[#C5A034] text-gray-900 font-semibold'
-                    : 'text-gray-300 hover:text-white'
-                }`}
-                title="View administrator metrics, ACIF taxonomy, and interventions"
-              >
-                Admin Demo
-              </button>
             </div>}
 
             {/* Reset Demo Data Button */}

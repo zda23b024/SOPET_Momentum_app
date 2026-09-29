@@ -9,6 +9,11 @@ export async function runSeed(client: PrismaClient = prisma) {
 
   // 1. Seed Permissions
   const permissionsList = [
+    { code: 'admin.dashboard.view', description: 'Open administration' },
+    { code: 'admin.users.view', description: 'View account metadata' },
+    { code: 'admin.audit.view', description: 'View audit history' },
+    { code: 'admin.deletions.view', description: 'View pending deletions' },
+    { code: 'admin.health.view', description: 'View system health' },
     { code: 'goal.read_own', description: 'Read own goals' },
     { code: 'goal.create', description: 'Create goals' },
     { code: 'goal.update_own', description: 'Update own goals' },
@@ -37,13 +42,8 @@ export async function runSeed(client: PrismaClient = prisma) {
     { code: 'prompt.view', description: 'View AI prompt templates' },
     { code: 'prompt.manage', description: 'Manage AI prompt versions' },
     { code: 'admin.roles.manage', description: 'Manage user roles and permissions' },
+    { code: 'admin.users.manage', description: 'Create users and manage account roles' },
     { code: 'admin.metrics.view', description: 'View administrative metrics' },
-    { code: 'admin.dashboard.view', description: 'Open the administration workspace' },
-    { code: 'admin.users.view', description: 'View safe user account metadata' },
-    { code: 'admin.users.manage', description: 'Activate and deactivate permitted accounts' },
-    { code: 'admin.audit.view', description: 'View administrative audit history' },
-    { code: 'admin.deletions.view', description: 'View scheduled account deletions' },
-    { code: 'admin.health.view', description: 'View system health summary' },
     { code: 'goal.shared.request', description: 'Request access to a user-shared goal' },
     { code: 'goal.shared.view', description: 'View a goal explicitly shared with this staff account' },
   ];
@@ -71,45 +71,13 @@ export async function runSeed(client: PrismaClient = prisma) {
       ],
     },
     {
-      name: UserRoleType.SUPPORT_ADMIN,
-      description: 'Technical Support Specialist. Can see operational metadata, cannot see private text.',
-      permissionCodes: ['account.metadata.view', 'security.sessions.view', 'knowledge.view', 'admin.metrics.view', 'admin.dashboard.view', 'admin.users.view', 'admin.health.view', 'goal.shared.request', 'goal.shared.view'],
+      name: UserRoleType.ADMIN,
+      description: 'Administrator. Has normal administrative access but cannot manage owners.',
+      permissionCodes: permissionsList.filter(p => !['admin.roles.manage', 'admin.users.manage'].includes(p.code)).map(p => p.code),
     },
     {
-      name: UserRoleType.SECURITY_ADMIN,
-      description: 'Security & Compliance Administrator. Manages sessions, security events, audit logs.',
-      permissionCodes: [
-        'security.sessions.view', 'security.sessions.revoke', 'security.events.view',
-        'account.metadata.view', 'account.suspend', 'admin.metrics.view', 'admin.dashboard.view', 'admin.users.view', 'admin.users.manage', 'admin.audit.view', 'admin.deletions.view', 'admin.health.view'
-      ],
-    },
-    {
-      name: UserRoleType.KNOWLEDGE_ADMIN,
-      description: 'Methodology & Knowledge Base Curator. Manages ACIF taxonomy and interventions.',
-      permissionCodes: [
-        'knowledge.view', 'knowledge.edit', 'knowledge.publish',
-        'taxonomy.view', 'taxonomy.edit',
-        'intervention.view', 'intervention.edit', 'intervention.publish',
-        'admin.metrics.view', 'admin.dashboard.view', 'admin.health.view'
-      ],
-    },
-    {
-      name: UserRoleType.ANALYTICS_ADMIN,
-      description: 'Cohort Progress & Statistical Analyst. Reads anonymized metrics.',
-      permissionCodes: ['analytics.view', 'admin.metrics.view', 'admin.dashboard.view', 'admin.health.view'],
-    },
-    {
-      name: UserRoleType.PRODUCT_ADMIN,
-      description: 'Product Lead. Oversees prompt versions and operational readiness.',
-      permissionCodes: [
-        'prompt.view', 'prompt.manage', 'analytics.view', 'knowledge.view',
-        'taxonomy.view', 'intervention.view', 'admin.metrics.view', 'admin.dashboard.view', 'admin.health.view',
-        'goal.shared.request', 'goal.shared.view'
-      ],
-    },
-    {
-      name: UserRoleType.SYSTEM_OWNER,
-      description: 'Break-glass owner. Heavily audited system administrator.',
+      name: UserRoleType.OWNER,
+      description: 'Platform owner. Has full administrative access and manages account roles.',
       permissionCodes: permissionsList.map(p => p.code),
     },
   ];
@@ -409,19 +377,19 @@ export async function runSeed(client: PrismaClient = prisma) {
     {
       email: 'support@sopet.local',
       fullName: 'SOPET Support Specialist',
-      role: UserRoleType.SUPPORT_ADMIN,
+      role: UserRoleType.ADMIN,
       privacyMode: PrivacyMode.STANDARD_PRIVATE,
     },
     {
       email: 'security@sopet.local',
       fullName: 'SOPET Security Lead',
-      role: UserRoleType.SECURITY_ADMIN,
+      role: UserRoleType.ADMIN,
       privacyMode: PrivacyMode.STANDARD_PRIVATE,
     },
     {
       email: 'owner@sopet.local',
       fullName: 'SOPET System Owner',
-      role: UserRoleType.SYSTEM_OWNER,
+      role: UserRoleType.OWNER,
       privacyMode: PrivacyMode.STANDARD_PRIVATE,
     },
   ];

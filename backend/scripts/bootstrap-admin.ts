@@ -7,10 +7,10 @@ export function validateBootstrapConfig(environment: NodeJS.ProcessEnv) {
   if (environment.BOOTSTRAP_ADMIN_ENABLED !== 'true') throw new Error('Set BOOTSTRAP_ADMIN_ENABLED=true explicitly for local/staging bootstrap');
   const email = environment.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
   const password = environment.BOOTSTRAP_ADMIN_PASSWORD;
-  const role = environment.BOOTSTRAP_ADMIN_ROLE || UserRoleType.SYSTEM_OWNER;
+  const role = (environment.BOOTSTRAP_ADMIN_ROLE === 'SYSTEM_OWNER' ? UserRoleType.OWNER : environment.BOOTSTRAP_ADMIN_ROLE) || UserRoleType.OWNER;
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('A valid BOOTSTRAP_ADMIN_EMAIL is required');
   if (!password || password.length < 12) throw new Error('BOOTSTRAP_ADMIN_PASSWORD must contain at least 12 characters');
-  if (role !== UserRoleType.SYSTEM_OWNER) throw new Error('Bootstrap supports SYSTEM_OWNER only');
+  if (role !== UserRoleType.OWNER) throw new Error('Bootstrap supports OWNER only');
   return { email, password, role };
 }
 

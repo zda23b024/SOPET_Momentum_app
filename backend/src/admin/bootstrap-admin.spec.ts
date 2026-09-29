@@ -2,7 +2,7 @@ import { bootstrapAdmin, validateBootstrapConfig } from '../../scripts/bootstrap
 import { validateProductionEnvironment } from '../config/configuration';
 import { CryptoUtil } from '../common/utils/crypto.util';
 
-const config = { NODE_ENV: 'development', BOOTSTRAP_ADMIN_ENABLED: 'true', BOOTSTRAP_ADMIN_EMAIL: ' owner@example.invalid ', BOOTSTRAP_ADMIN_PASSWORD: 'DeveloperSelected123!', BOOTSTRAP_ADMIN_ROLE: 'SYSTEM_OWNER' };
+const config = { NODE_ENV: 'development', BOOTSTRAP_ADMIN_ENABLED: 'true', BOOTSTRAP_ADMIN_EMAIL: ' owner@example.invalid ', BOOTSTRAP_ADMIN_PASSWORD: 'DeveloperSelected123!', BOOTSTRAP_ADMIN_ROLE: 'OWNER' };
 
 describe('development admin bootstrap', () => {
   it('creates a verified owner with the normal password hash', async () => {

@@ -2,12 +2,14 @@ import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nes
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { ApproveGoalAccessRequestDto, CommitEncryptedRevocationDto, FailEncryptedRevocationDto, GrantGoalAccessDto, RegisterSharingKeyDto, RequestGoalAccessDto } from './dto/sharing.dto';
 import { SharingService } from './sharing.service';
 
 @ApiTags('Goal Sharing')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller()
 export class SharingController {
   constructor(private readonly sharingService: SharingService) {}
@@ -48,16 +50,19 @@ export class SharingController {
   }
 
   @Get('admin/shared-goals')
+  @Roles('OWNER', 'ADMIN')
   sharedWithMe(@CurrentUser() user: AuthenticatedUser) {
     return this.sharingService.listSharedWithMe(user);
   }
 
   @Get('admin/shared-goals/:goalId')
+  @Roles('OWNER', 'ADMIN')
   openSharedGoal(@CurrentUser() user: AuthenticatedUser, @Param('goalId') goalId: string) {
     return this.sharingService.getSharedGoal(user, goalId);
   }
 
   @Post('admin/sharing-key')
+  @Roles('OWNER', 'ADMIN')
   registerSharingKey(@CurrentUser() user: AuthenticatedUser, @Body() dto: RegisterSharingKeyDto) {
     return this.sharingService.registerSharingKey(user, dto);
   }
@@ -78,6 +83,7 @@ export class SharingController {
   }
 
   @Get('admin/sharing-key')
+  @Roles('OWNER', 'ADMIN')
   getOwnSharingKey(@CurrentUser() user: AuthenticatedUser) {
     return this.sharingService.getOwnSharingKey(user);
   }

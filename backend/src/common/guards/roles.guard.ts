@@ -27,7 +27,7 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied: unauthenticated user');
     }
 
-    if (process.env.NODE_ENV === 'production' && user.roles?.includes('SYSTEM_OWNER') && !user.mfaEnabled) {
+    if (process.env.NODE_ENV === 'production' && user.roles?.includes('OWNER') && !user.mfaEnabled) {
       throw new ForbiddenException('System owners must enable MFA before administrative access');
     }
 

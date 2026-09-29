@@ -19,12 +19,12 @@ export function ProductionAdmin() {
   const vault = usePrivacyVault();
   const roles = user?.roles ?? [];
   const permissions = user?.permissions ?? [];
-  const canShare = roles.some(r => ['SUPPORT_ADMIN','PRODUCT_ADMIN'].includes(r)) && permissions.includes('goal.shared.view');
-  const canAudit = roles.some(r => ['SYSTEM_OWNER','SECURITY_ADMIN'].includes(r));
-  const canMetrics = roles.some(r => ['SYSTEM_OWNER','SECURITY_ADMIN','SUPPORT_ADMIN'].includes(r)) && permissions.includes('admin.metrics.view');
+  const canShare = roles.some(r => ['ADMIN'].includes(r)) && permissions.includes('goal.shared.view');
+  const canAudit = roles.some(r => ['OWNER','ADMIN'].includes(r));
+  const canMetrics = roles.some(r => ['OWNER','ADMIN'].includes(r)) && permissions.includes('admin.metrics.view');
   const canUsers = permissions.includes('admin.users.view');
   const canManageUsers = permissions.includes('admin.users.manage');
-  const canManageRoles = roles.includes('SYSTEM_OWNER') && permissions.includes('admin.roles.manage');
+  const canManageRoles = roles.includes('OWNER') && permissions.includes('admin.roles.manage');
   const tabs: { id: Tab; label: string }[] = [
     ...(permissions.includes('admin.metrics.view') ? [{ id: 'overview' as const, label: 'Overview' }] : []),
     ...(canUsers ? [{ id: 'users' as const, label: 'Users' }, { id: 'roles' as const, label: 'Roles & Permissions' }] : []),
@@ -46,10 +46,11 @@ export function ProductionAdmin() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [selectedRole, setSelectedRole] = useState('SUPPORT_ADMIN');
+  const [selectedRole, setSelectedRole] = useState('ADMIN');
   const [auditSearch, setAuditSearch] = useState('');
   const [availableRoles, setAvailableRoles] = useState<AdminRole[]>([]);
   const requestVersion = useRef(0);
+  const [newUser, setNewUser] = useState({ fullName: '', email: '', password: '', role: 'USER' });
   const load = async () => {
     const version = ++requestVersion.current;
     setLoading(true); setError(''); setData(null); setOpened(null);
@@ -98,6 +99,18 @@ export function ProductionAdmin() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to configure your sharing key.'); }
     finally { setBusy(false); }
   };
+  const createUser = async (event: React.FormEvent) => {
+    event.preventDefault(); setBusy(true); setError('');
+    try { await apiRequest('/admin/users', { method: 'POST', body: JSON.stringify(newUser) }); setNewUser({ fullName: '', email: '', password: '', role: 'USER' }); await load(); showToast('Account created.', 'success'); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Unable to create the account.'); }
+    finally { setBusy(false); }
+  };
+  const changeRole = async (userId: string, role: string) => {
+    setBusy(true); setError('');
+    try { await apiRequest(`/admin/users/${userId}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }); await load(); showToast('Account role updated. The account must sign in again.', 'success'); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Unable to update the account role.'); }
+    finally { setBusy(false); }
+  };
   const openGoal = async (goalId: string) => {
     if (busy) return; setBusy(true); setError(''); setOpened(null);
     try {
@@ -125,6 +138,7 @@ export function ProductionAdmin() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[['Active users',data.activeUsers],['Pending verification',data.pendingVerification],['Pending deletion',data.pendingDeletions],['Active admin accounts',data.activeAdmins],['Security events (24h)',data.recentSecurityEvents],['Locked accounts',data.lockedAccounts ?? 'Not tracked']].map(([label,value]) => <section key={String(label)} className="settings-card"><h2 className="text-sm font-semibold text-slate-600">{label}</h2><p className="text-2xl font-bold text-[#0E3C5B]">{value}</p></section>)}</div>
         <section className="settings-card space-y-3"><h2 className="text-lg font-bold">Your administrative access</h2><p className="text-sm">Roles: {roles.join(', ')}</p><p className="text-sm">Permissions: {permissions.join(', ')}</p><p className="text-sm">System: database {data.health?.database}; Redis {data.health?.redis}; email {data.health?.emailProvider}.</p><h3 className="font-semibold">Security checklist</h3><ul className="list-disc pl-5 text-sm"><li>Change your bootstrap password in Account & Privacy Settings.</li><li>Multi-factor authentication: {accountProfile?.mfaEnabled ? 'enabled' : 'not enabled — configure it before production administration'}.</li><li>Review active sessions and security events regularly.</li></ul><a className="secondary-button inline-block" href="/">Open account settings from the account menu</a></section>
       </div>}
+      {tab === 'users' && roles.includes('OWNER') && <section className="settings-card"><h2>Create account</h2><form onSubmit={createUser} className="mb-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-5"><input required value={newUser.fullName} onChange={e => setNewUser({ ...newUser, fullName: e.target.value })} placeholder="Full name" className="rounded border p-2" /><input required type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="Email" className="rounded border p-2" /><input required minLength={12} type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} placeholder="Temporary password" className="rounded border p-2" /><select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })} className="rounded border p-2"><option value="USER">User</option><option value="ADMIN">Admin</option><option value="OWNER">Owner</option></select><button disabled={busy} className="primary-button">Create account</button></form></section>}
       {tab === 'users' && <section className="settings-card space-y-4"><h2 className="text-lg font-bold">User management</h2><form className="flex flex-wrap gap-2" onSubmit={event => { event.preventDefault(); void load(); }}><input aria-label="Search users" placeholder="Search email or name" maxLength={100} value={search} onChange={event => setSearch(event.target.value)} /><select aria-label="Filter by role" value={roleFilter} onChange={event => setRoleFilter(event.target.value)}><option value="">All roles</option>{availableRoles.map(role => <option key={role.id} value={role.name}>{role.name}</option>)}</select><select aria-label="Filter by status" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="unverified">Unverified</option></select><button className="secondary-button">Apply filters</button></form>
         {Array.isArray(data) && (!data.length ? <p className="text-sm text-slate-600">No matching users.</p> : <ul className="space-y-3">{(data as AdminUser[]).map(account => <li className="rounded-lg border border-slate-200 p-4 space-y-2" key={account.id}><p className="font-semibold">{account.fullName || account.email}</p><p className="text-sm">{account.email}</p><p className="text-xs text-slate-600">{account.userRoles.map(item => item.role.name).join(', ') || 'No role'} · {account.isActive ? 'Active' : 'Inactive'} · {account.isEmailVerified ? 'Verified' : 'Unverified'} · MFA {account.mfaEnabled ? 'on' : 'off'}</p><p className="text-xs text-slate-500">Last login: {account.lastLoginAt ? new Date(account.lastLoginAt).toLocaleString() : 'Never'}</p><div className="flex flex-wrap gap-2">{canManageUsers && account.id !== accountProfile?.id && <button disabled={busy} className="secondary-button" onClick={() => void changeUser(account.id, () => apiRequest(`/admin/users/${account.id}/status`, { method: 'PATCH', body: JSON.stringify({ isActive: !account.isActive }) }))}>{account.isActive ? 'Deactivate' : 'Activate'}</button>}{permissions.includes('security.sessions.revoke') && <button disabled={busy} className="secondary-button" onClick={() => void changeUser(account.id, () => apiRequest(`/admin/users/${account.id}/revoke-sessions`, { method: 'POST', body: '{}' }))}>Revoke sessions</button>}{!account.isEmailVerified && <button disabled={busy} className="secondary-button" onClick={() => void changeUser(account.id, () => apiRequest(`/admin/users/${account.id}/resend-verification`, { method: 'POST', body: '{}' }))}>Resend verification</button>}{account.isActive && <button disabled={busy} className="secondary-button" onClick={() => void changeUser(account.id, () => apiRequest(`/admin/users/${account.id}/request-password-reset`, { method: 'POST', body: '{}' }))}>Send password reset</button>}{canManageRoles && account.id !== accountProfile?.id && <><select aria-label={`Role for ${account.email}`} value={selectedRole} onChange={event => setSelectedRole(event.target.value)}>{availableRoles.filter(role => role.name !== 'USER').map(role => <option key={role.id} value={role.name}>{role.name}</option>)}</select><button disabled={busy} className="secondary-button" onClick={() => void changeUser(account.id, () => apiRequest(`/admin/users/${account.id}/roles`, { method: 'POST', body: JSON.stringify({ role: selectedRole, action: 'assign' }) }))}>Assign role</button><button disabled={busy} className="secondary-button" onClick={() => void changeUser(account.id, () => apiRequest(`/admin/users/${account.id}/roles`, { method: 'POST', body: JSON.stringify({ role: selectedRole, action: 'revoke' }) }))}>Revoke role</button></>}</div></li>)}</ul>)}
       </section>}

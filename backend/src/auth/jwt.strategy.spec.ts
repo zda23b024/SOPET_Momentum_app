@@ -17,7 +17,7 @@ describe('cookie-only JWT authentication', () => {
   it('uses current database roles rather than stale token claims', async () => {
     const config = { getOrThrow: () => 'test-secret-at-least-thirty-two-characters' } as any;
     const prisma = { isConnected: true, session: { findUnique: jest.fn().mockResolvedValue({ isRevoked: false, expiresAt: new Date(Date.now() + 10000) }) }, user: { findUnique: jest.fn().mockResolvedValue({ email: 'u@example.test', isActive: true, mfaEnabled: true, defaultPrivacyMode: 'STANDARD_PRIVATE', userRoles: [{ role: { name: 'USER', permissions: [{ permission: { code: 'goal.read_own' } }] } }] }) } } as any;
-    const user = await new JwtStrategy(config, prisma).validate({ sub: 'user-1', email: 'u@example.test', roles: ['SYSTEM_OWNER'], permissions: ['admin.dashboard.view'], sessionId: 'session-1' });
+    const user = await new JwtStrategy(config, prisma).validate({ sub: 'user-1', email: 'u@example.test', roles: ['OWNER'], permissions: ['admin.dashboard.view'], sessionId: 'session-1' });
     expect(user.roles).toEqual(['USER']);
     expect(user.permissions).toEqual(['goal.read_own']);
   });

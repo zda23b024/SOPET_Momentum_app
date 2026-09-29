@@ -1,3 +1,4 @@
+import { CreateManagedUserDto, UpdateManagedUserRoleDto } from './dto/managed-user.dto';
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
@@ -10,7 +11,7 @@ import { ChangeUserRoleDto, SetAccountStatusDto } from './dto/admin.dto';
 @ApiTags('Administration & Security')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SYSTEM_OWNER', 'SUPPORT_ADMIN', 'SECURITY_ADMIN', 'KNOWLEDGE_ADMIN', 'ANALYTICS_ADMIN', 'PRODUCT_ADMIN')
+@Roles('OWNER', 'ADMIN')
 @RequirePermissions('admin.dashboard.view')
 @Controller('admin')
 export class AdminController {
@@ -27,7 +28,7 @@ export class AdminController {
   }
 
   @Patch('users/:userId/status')
-  @Roles('SYSTEM_OWNER', 'SECURITY_ADMIN')
+  @Roles('OWNER', 'ADMIN')
   @RequirePermissions('admin.dashboard.view', 'admin.users.manage')
   setAccountStatus(@CurrentUser() actor: AuthenticatedUser, @Param('userId') userId: string, @Body() dto: SetAccountStatusDto) {
     return this.adminService.setAccountStatus(actor.id, userId, dto.isActive);
@@ -38,14 +39,14 @@ export class AdminController {
   getRoles() { return this.adminService.getRoles(); }
 
   @Post('users/:userId/roles')
-  @Roles('SYSTEM_OWNER')
+  @Roles('OWNER')
   @RequirePermissions('admin.dashboard.view', 'admin.roles.manage')
   changeUserRole(@CurrentUser() actor: AuthenticatedUser, @Param('userId') userId: string, @Body() dto: ChangeUserRoleDto) {
     return this.adminService.changeUserRole(actor.id, userId, dto);
   }
 
   @Get('deletions')
-  @Roles('SYSTEM_OWNER', 'SECURITY_ADMIN')
+  @Roles('OWNER', 'ADMIN')
   @RequirePermissions('admin.dashboard.view', 'admin.deletions.view')
   getDeletions() { return this.adminService.getPendingDeletions(); }
 
@@ -54,28 +55,28 @@ export class AdminController {
   getHealth() { return this.adminService.getHealth(); }
 
   @Post('users/:userId/revoke-sessions')
-  @Roles('SYSTEM_OWNER', 'SECURITY_ADMIN')
+  @Roles('OWNER', 'ADMIN')
   @RequirePermissions('admin.dashboard.view', 'security.sessions.revoke')
   revokeSessions(@CurrentUser() actor: AuthenticatedUser, @Param('userId') userId: string) {
     return this.adminService.revokeUserSessions(actor.id, userId);
   }
 
   @Post('users/:userId/resend-verification')
-  @Roles('SYSTEM_OWNER', 'SUPPORT_ADMIN', 'SECURITY_ADMIN')
+  @Roles('OWNER', 'ADMIN')
   @RequirePermissions('admin.dashboard.view', 'admin.users.view')
   resendVerification(@CurrentUser() actor: AuthenticatedUser, @Param('userId') userId: string) {
     return this.adminService.resendUserVerification(actor.id, userId);
   }
 
   @Post('users/:userId/request-password-reset')
-  @Roles('SYSTEM_OWNER', 'SUPPORT_ADMIN', 'SECURITY_ADMIN')
+  @Roles('OWNER', 'ADMIN')
   @RequirePermissions('admin.dashboard.view', 'admin.users.view')
   requestPasswordReset(@CurrentUser() actor: AuthenticatedUser, @Param('userId') userId: string) {
     return this.adminService.requestUserPasswordReset(actor.id, userId);
   }
 
   @Get('metrics')
-  @Roles('SYSTEM_OWNER', 'SUPPORT_ADMIN', 'SECURITY_ADMIN')
+  @Roles('OWNER', 'ADMIN')
   @RequirePermissions('admin.dashboard.view', 'admin.metrics.view')
   @ApiOperation({ summary: 'View high-level anonymous system metrics' })
   async getMetrics() {
@@ -83,7 +84,7 @@ export class AdminController {
   }
 
   @Get('audit-logs')
-  @Roles('SYSTEM_OWNER', 'SECURITY_ADMIN')
+  @Roles('OWNER', 'ADMIN')
   @RequirePermissions('admin.dashboard.view', 'admin.audit.view')
   @ApiOperation({ summary: 'View recent tamper-evident audit logs (Security & Owner only)' })
   @ApiQuery({ name: 'limit', required: false })
@@ -92,11 +93,26 @@ export class AdminController {
   }
 
   @Get('security-events')
-  @Roles('SYSTEM_OWNER', 'SECURITY_ADMIN')
+  @Roles('OWNER', 'ADMIN')
   @RequirePermissions('admin.dashboard.view', 'security.events.view')
   @ApiOperation({ summary: 'View security events (brute force flags, session revokes)' })
   @ApiQuery({ name: 'limit', required: false })
   async getSecurityEvents(@Query('limit') limit?: number) {
     return await this.adminService.getRecentSecurityEvents(limit ? Number(limit) : 50);
+  }
+
+
+  @Post('users')
+  @Roles('OWNER')
+  @ApiOperation({ summary: 'Create a user, admin, or owner account (Owner only)' })
+  async createUser(@CurrentUser() actor: AuthenticatedUser, @Body() dto: CreateManagedUserDto) {
+    return this.adminService.createManagedUser(actor, dto);
+  }
+
+  @Patch('users/:userId/role')
+  @Roles('OWNER')
+  @ApiOperation({ summary: 'Change an account role (Owner only)' })
+  async updateUserRole(@CurrentUser() actor: AuthenticatedUser, @Param('userId') userId: string, @Body() dto: UpdateManagedUserRoleDto) {
+    return this.adminService.updateManagedUserRole(actor, userId, dto.role);
   }
 }
