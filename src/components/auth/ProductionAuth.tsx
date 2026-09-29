@@ -50,7 +50,7 @@ export function ProductionAuth() {
     {standalone && <div className="absolute inset-0 bg-slate-950/10" aria-hidden="true" />}
     <section id={standalone ? 'main-content' : undefined} className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/50 bg-white shadow-2xl">
       <header className="bg-[#0E3C5B] p-6 text-white">
-        <div className="flex items-center justify-between gap-3"><BrandLogo className="h-14 w-auto bg-white rounded p-1" />{!standalone && <button aria-label="Close authentication" disabled={busy} onClick={closeAuthModal}>Close</button>}</div>
+        <div className="flex items-center justify-between gap-3"><BrandLogo className="h-20" />{!standalone && <button aria-label="Close authentication" disabled={busy} onClick={closeAuthModal}>Close</button>}</div>
         <h1 className="mt-4 text-2xl font-bold">{t('brand')}</h1><p className="mt-1 text-sm text-slate-200">{t('tagline')}</p>
       </header>
       <div className="space-y-5 p-6">

@@ -1,0 +1,443 @@
+{
+  "purpose": "Clearly labelled fictional sample accounts for the live application; not evidence of real adoption.",
+  "importStatus": "NOT_IMPORTED",
+  "rules": [
+    "Create USER accounts only.",
+    "Do not send emails to sample addresses.",
+    "Do not fabricate sessions, login history, audit logs or historical timestamps.",
+    "Apply sample progress through supported application operations.",
+    "Do not overwrite existing accounts."
+  ],
+  "accounts": [
+    {
+      "externalKey": "sopet-sample-amina",
+      "email": "amina.sample@example.invalid",
+      "fullName": "Amina (Sample Account)",
+      "role": "USER",
+      "timezone": "Africa/Dar_es_Salaam",
+      "goal": {
+        "title": "[Sample] Launch a small catering service",
+        "description": "Fictional illustration of an active plan. Build a reliable lunch service for nearby offices.",
+        "whyItMatters": "Build a reliable lunch service for nearby offices.",
+        "targetDaysFromImport": 42,
+        "milestones": [
+          {
+            "title": "Prepare",
+            "actionNumbers": [
+              1,
+              2
+            ]
+          },
+          {
+            "title": "Put the plan into practice",
+            "actionNumbers": [
+              3,
+              4
+            ]
+          },
+          {
+            "title": "Review and finish",
+            "actionNumbers": [
+              5,
+              6
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "title": "Choose a lunch-service concept",
+            "status": "COMPLETED",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 0,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Draft a five-item menu",
+            "status": "COMPLETED",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 1,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Estimate ingredient costs",
+            "status": "IN_PROGRESS",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 2,
+            "isNMA": true,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Compare packaging suppliers",
+            "status": "PENDING",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 3,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Prepare a tasting checklist",
+            "status": "PENDING",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 4,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Plan the first paid pilot",
+            "status": "PENDING",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 5,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "sopet-sample-baraka",
+      "email": "baraka.sample@example.invalid",
+      "fullName": "Baraka (Sample Account)",
+      "role": "USER",
+      "timezone": "Africa/Dar_es_Salaam",
+      "goal": {
+        "title": "[Sample] Build a web-development portfolio",
+        "description": "Fictional illustration of an active plan. Develop practical skills and prepare for junior developer applications.",
+        "whyItMatters": "Develop practical skills and prepare for junior developer applications.",
+        "targetDaysFromImport": 42,
+        "milestones": [
+          {
+            "title": "Prepare",
+            "actionNumbers": [
+              1,
+              2
+            ]
+          },
+          {
+            "title": "Put the plan into practice",
+            "actionNumbers": [
+              3,
+              4
+            ]
+          },
+          {
+            "title": "Review and finish",
+            "actionNumbers": [
+              5,
+              6
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "title": "Choose a portfolio project",
+            "status": "COMPLETED",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 0,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Write project requirements",
+            "status": "COMPLETED",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 1,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Build a responsive landing page",
+            "status": "COMPLETED",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 2,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Connect a sample API",
+            "status": "IN_PROGRESS",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 3,
+            "isNMA": true,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Add accessibility checks",
+            "status": "PENDING",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 4,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Publish the portfolio",
+            "status": "PENDING",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 5,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "sopet-sample-neema",
+      "email": "neema.sample@example.invalid",
+      "fullName": "Neema (Sample Account)",
+      "role": "USER",
+      "timezone": "Africa/Dar_es_Salaam",
+      "goal": {
+        "title": "[Sample] Establish a consistent study routine",
+        "description": "Fictional illustration of an active plan. Prepare for exams through short study sessions and regular review.",
+        "whyItMatters": "Prepare for exams through short study sessions and regular review.",
+        "targetDaysFromImport": 42,
+        "milestones": [
+          {
+            "title": "Prepare",
+            "actionNumbers": [
+              1,
+              2
+            ]
+          },
+          {
+            "title": "Put the plan into practice",
+            "actionNumbers": [
+              3,
+              4
+            ]
+          },
+          {
+            "title": "Review and finish",
+            "actionNumbers": [
+              5,
+              6
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "title": "List exam topics",
+            "status": "COMPLETED",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 0,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Create a weekly timetable",
+            "status": "COMPLETED",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 1,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Complete the first revision session",
+            "status": "IN_PROGRESS",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 2,
+            "isNMA": true,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Practise ten questions",
+            "status": "PENDING",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 3,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Review difficult topics",
+            "status": "PENDING",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 4,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Complete a timed practice paper",
+            "status": "PENDING",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 5,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "sopet-sample-juma",
+      "email": "juma.sample@example.invalid",
+      "fullName": "Juma (Sample Account)",
+      "role": "USER",
+      "timezone": "Africa/Dar_es_Salaam",
+      "goal": {
+        "title": "[Sample] Organize a household budget",
+        "description": "Fictional illustration of an active plan. Understand spending and make a practical monthly savings plan.",
+        "whyItMatters": "Understand spending and make a practical monthly savings plan.",
+        "targetDaysFromImport": 42,
+        "milestones": [
+          {
+            "title": "Prepare",
+            "actionNumbers": [
+              1,
+              2
+            ]
+          },
+          {
+            "title": "Put the plan into practice",
+            "actionNumbers": [
+              3,
+              4
+            ]
+          },
+          {
+            "title": "Review and finish",
+            "actionNumbers": [
+              5,
+              6
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "title": "List monthly income categories",
+            "status": "COMPLETED",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 0,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Group recurring expenses",
+            "status": "COMPLETED",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 1,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Draft a monthly budget",
+            "status": "COMPLETED",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 2,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Review discretionary spending",
+            "status": "COMPLETED",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 3,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Choose a savings target",
+            "status": "IN_PROGRESS",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 4,
+            "isNMA": true,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Schedule a monthly budget review",
+            "status": "PENDING",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 5,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "sopet-sample-rehema",
+      "email": "rehema.sample@example.invalid",
+      "fullName": "Rehema (Sample Account)",
+      "role": "USER",
+      "timezone": "Africa/Dar_es_Salaam",
+      "goal": {
+        "title": "[Sample] Start a community reading group",
+        "description": "Fictional illustration of an active plan. Create a welcoming monthly reading activity with a manageable schedule.",
+        "whyItMatters": "Create a welcoming monthly reading activity with a manageable schedule.",
+        "targetDaysFromImport": 42,
+        "milestones": [
+          {
+            "title": "Prepare",
+            "actionNumbers": [
+              1,
+              2
+            ]
+          },
+          {
+            "title": "Put the plan into practice",
+            "actionNumbers": [
+              3,
+              4
+            ]
+          },
+          {
+            "title": "Review and finish",
+            "actionNumbers": [
+              5,
+              6
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "title": "Define the group purpose",
+            "status": "COMPLETED",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 0,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Choose the first book",
+            "status": "IN_PROGRESS",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 1,
+            "isNMA": true,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Draft an invitation",
+            "status": "PENDING",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 2,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Shortlist meeting locations",
+            "status": "PENDING",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 3,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Prepare discussion questions",
+            "status": "PENDING",
+            "estimatedMinutes": 25,
+            "scheduledDaysFromImport": 4,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          },
+          {
+            "title": "Plan the first meeting",
+            "status": "PENDING",
+            "estimatedMinutes": 45,
+            "scheduledDaysFromImport": 5,
+            "isNMA": false,
+            "notes": "Illustrative sample progress; no real-world activity is claimed."
+          }
+        ]
+      }
+    }
+  ]
+}

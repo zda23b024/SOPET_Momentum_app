@@ -73,7 +73,7 @@ export const AuthModal: React.FC = () => {
         {/* Header */}
         <div className="bg-[#0E3C5B] text-white p-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <BrandLogo className="h-12 w-auto rounded bg-white p-1" />
+            <BrandLogo className="h-16" />
             <div>
             <h2 className="text-lg font-bold">
               {authModalMode === 'signin' && 'Sign In to SOPET Momentum'}

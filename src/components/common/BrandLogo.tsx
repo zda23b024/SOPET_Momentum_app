@@ -1,7 +1,11 @@
 import React from 'react';
-// Vite resolves the official asset when supplied. Never substitute a generated logo.
-const assets = import.meta.glob('/src/assets/sopet-logo.png', { eager: true, query: '?url', import: 'default' });
-export const officialLogo = assets['/src/assets/sopet-logo.png'] as string | undefined;
-export const BrandLogo: React.FC<{ className?: string }> = ({ className = 'h-10 w-auto' }) =>
-  officialLogo ? <img src={officialLogo} alt="SOPET Momentum — The Soft Persona Tool" className={`object-contain max-w-full shrink-0 ${className}`} /> :
-  <span className="inline-flex shrink-0 items-center h-12 w-12 justify-center rounded-full border border-current/20 text-sm font-bold tracking-wide" aria-label="SOPET — The Soft Persona Tool">SOPET</span>;
+import logo from '../../assets/sopet-logo.png';
+
+export const officialLogo = logo;
+
+// Frame the supplied artwork tightly without changing or stretching the source.
+export const BrandLogo: React.FC<{ className?: string }> = ({ className = 'h-12' }) => (
+  <span className={`relative inline-block align-middle overflow-hidden shrink-0 ${className}`} style={{ aspectRatio: '2.55 / 1' }}>
+    <img src={officialLogo} alt="SOPET Momentum" className="absolute max-w-none mix-blend-multiply" style={{ width: '106%', height: 'auto', left: '-3%', top: '-20%' }} />
+  </span>
+);
