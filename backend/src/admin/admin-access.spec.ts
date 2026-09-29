@@ -28,6 +28,19 @@ describe('administration authorization and safety', () => {
     } finally { if (previous === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous; }
   });
 
+  it('accepts legacy SYSTEM_OWNER without bypassing permissions or production MFA', () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const guard = new RolesGuard(new Reflector());
+      const user = { roles: ['SYSTEM_OWNER'], permissions: ['admin.dashboard.view', 'admin.users.view'], mfaEnabled: true };
+      expect(guard.canActivate(contextFor('getUsers', user))).toBe(true);
+      expect(() => guard.canActivate(contextFor('getUsers', { ...user, permissions: [] }))).toThrow(ForbiddenException);
+      expect(() => guard.canActivate(contextFor('getUsers', { ...user, mfaEnabled: false }))).toThrow(ForbiddenException);
+      expect(() => guard.canActivate(contextFor('getUsers', undefined))).toThrow(ForbiddenException);
+    } finally { if (previous === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous; }
+  });
+
   const setup = () => {
     const transaction: any = {
       $executeRawUnsafe: jest.fn(),

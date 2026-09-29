@@ -27,13 +27,16 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied: unauthenticated user');
     }
 
-    if (process.env.NODE_ENV === 'production' && user.roles?.includes('OWNER') && !user.mfaEnabled) {
+    const normalizeRole = (role: string) => role === 'SYSTEM_OWNER' ? 'OWNER' : role;
+    const roles = user.roles?.map(normalizeRole) ?? [];
+
+    if (process.env.NODE_ENV === 'production' && roles.includes('OWNER') && !user.mfaEnabled) {
       throw new ForbiddenException('System owners must enable MFA before administrative access');
     }
 
     // Role check
     if (requiredRoles && requiredRoles.length > 0) {
-      const hasRole = requiredRoles.some((role) => user.roles?.includes(role));
+      const hasRole = requiredRoles.some((role) => roles.includes(normalizeRole(role)));
       if (!hasRole) {
         throw new ForbiddenException(`Access denied: required role ${requiredRoles.join(' or ')}`);
       }

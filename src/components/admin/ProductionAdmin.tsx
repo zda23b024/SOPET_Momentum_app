@@ -1,3 +1,4 @@
+import { normalizeAdminRole } from '../../services/permissions';
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { apiRequest, sharingApi } from '../../services/api';
@@ -17,7 +18,7 @@ type AdminRole = { id: string; name: string; description: string; permissions: {
 export function ProductionAdmin() {
   const { user, activeRole, showToast } = useApp();
   const vault = usePrivacyVault();
-  const roles = user?.roles ?? [];
+  const roles = (user?.roles ?? []).map(normalizeAdminRole);
   const permissions = user?.permissions ?? [];
   const canShare = roles.some(r => ['ADMIN'].includes(r)) && permissions.includes('goal.shared.view');
   const canAudit = roles.some(r => ['OWNER','ADMIN'].includes(r));

@@ -10,6 +10,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:crypto": "tsx --test src/crypto/*.test.ts",
+    "test:permissions": "tsx --test src/services/permissions.test.ts",
     "test:ai": "tsx --test src/services/aiConsent.test.ts"
   },
   "dependencies": {

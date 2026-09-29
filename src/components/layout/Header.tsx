@@ -99,6 +99,13 @@ export const Header: React.FC = () => {
                   </button>
                 );
               })}
+              {activeRole === 'admin' && <a
+                href="/administration"
+                className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Administration</span>
+              </a>}
             </nav>
           )}
 
@@ -245,6 +252,13 @@ export const Header: React.FC = () => {
               </button>
             );
           })}
+          {activeRole === 'admin' && <a
+            href="/administration"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Administration</span>
+          </a>}
           <div className="pt-2 border-t border-[#155A8A]/50">
             <button
               onClick={() => {
