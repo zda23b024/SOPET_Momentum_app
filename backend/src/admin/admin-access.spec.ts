@@ -19,6 +19,22 @@ describe('administration authorization and safety', () => {
     expect(guard.canActivate(contextFor('getUsers', { roles: ['OWNER'], permissions: ['admin.dashboard.view', 'admin.users.view'], mfaEnabled: true }))).toBe(true);
   });
 
+  it('allows authorized administrators to load overview and rejects missing grants or USER roles', () => {
+    const guard = new RolesGuard(new Reflector());
+    for (const role of ['OWNER', 'ADMIN']) {
+      expect(guard.canActivate(contextFor('getOverview', { roles: [role], permissions: ['admin.dashboard.view', 'admin.metrics.view'], mfaEnabled: true }))).toBe(true);
+    }
+    let deniedStatus: number | undefined;
+    try {
+      guard.canActivate(contextFor('getOverview', { roles: ['OWNER'], permissions: ['admin.dashboard.view'], mfaEnabled: true }));
+    } catch (error) {
+      if (!(error instanceof ForbiddenException)) throw error;
+      deniedStatus = error.getStatus();
+    }
+    expect(deniedStatus).toBe(403);
+    expect(() => guard.canActivate(contextFor('getOverview', { roles: ['USER'], permissions: ['admin.dashboard.view', 'admin.metrics.view'] }))).toThrow(ForbiddenException);
+  });
+
   it('requires MFA for production system owner administration', () => {
     const previous = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
