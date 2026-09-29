@@ -19,37 +19,36 @@ export class UsersService {
   async processDueAccountDeletions() {
     if (!this.prisma.isConnected) return { processed: 0 };
 
-    const lock = await this.prisma.$queryRawUnsafe<Array<{ locked: boolean }>>('SELECT pg_try_advisory_lock(87420933) AS locked');
-    if (!lock[0]?.locked) return { processed: 0, skipped: 'another worker holds the deletion lock' };
-
-    try {
-
     const dueRequests = await this.prisma.accountDeletionRequest.findMany({
       where: { status: 'PENDING', scheduledFor: { lte: new Date() } },
       select: { id: true, userId: true },
       take: 100,
     });
 
+    let processed = 0;
     for (const request of dueRequests) {
       try {
-        await this.prisma.$transaction(async (transaction) => {
+        const deleted = await this.prisma.$transaction(async (transaction) => {
+          // Transaction locks stay on one pooled connection and release on rollback.
+          const lock = await transaction.$queryRawUnsafe<Array<{ locked: boolean }>>('SELECT pg_try_advisory_xact_lock(87420933) AS locked');
+          if (!lock[0]?.locked) return false;
           const updated = await transaction.accountDeletionRequest.updateMany({
             where: { id: request.id, status: 'PENDING' },
             data: { status: 'COMPLETED', confirmedAt: new Date() },
           });
-          if (updated.count === 0) return;
+          if (updated.count === 0) return false;
           await transaction.user.delete({ where: { id: request.userId } });
+          return true;
         });
+        if (!deleted) continue;
+        processed++;
         await this.auditService.log({ actorId: request.userId, actorUserId: null, action: 'ACCOUNT_DELETED', targetId: request.userId, targetType: 'USER' });
       } catch (error: any) {
         this.logger.error(`Account deletion ${request.id} failed: ${error?.message || error}`);
       }
     }
 
-      return { processed: dueRequests.length };
-    } finally {
-      await this.prisma.$queryRawUnsafe('SELECT pg_advisory_unlock(87420933)');
-    }
+    return { processed };
   }
 
   async getProfile(userId: string) {

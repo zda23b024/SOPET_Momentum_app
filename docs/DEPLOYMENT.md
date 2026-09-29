@@ -18,7 +18,7 @@ Set `VITE_APP_MODE=production` and `VITE_API_BASE_URL` as above for both Preview
 
 ## Scheduled account deletion worker
 
-Create a Railway cron/service invocation at least hourly that runs `npm run deletion:process-due`. The command uses a PostgreSQL advisory lock, so concurrent replicas or duplicate scheduler delivery cannot process the same batch concurrently. Keep the API deployment separate from the worker schedule.
+Create a Railway cron/service invocation at least hourly that runs `npm run deletion:process-due`. The command uses a transaction-scoped PostgreSQL advisory lock for each deletion and atomically claims pending requests, preventing duplicate account deletion across concurrent workers. Locks release automatically on commit or rollback. Contended requests remain pending for a later scheduled run. Keep the API deployment separate from the worker schedule.
 
 ## Pre-release and rollback
 

@@ -193,3 +193,13 @@ OpenAPI Swagger UI will be live at `http://localhost:4000/api/docs`.
 4. Build and deploy the frontend with `VITE_API_BASE_URL` pointing at the HTTPS API. Configure the reverse proxy to forward `/api` and preserve secure cookies.
 5. Verify `GET /api/v1/health` reports `status: "ok"` and `database: "connected"`; verify registration, email verification, login, refresh, logout, vault recovery, and account-deletion scheduling in staging.
 6. Alert on non-2xx health responses, migration failures, email delivery failures, database backup failures, and sustained 429/5xx responses. Keep the previous application artifact available for rollback; do not roll back a migration without a reviewed database procedure.
+
+## One-time SYSTEM_OWNER provisioning
+
+From `backend/`, run `npm run admin:provision` with `DATABASE_URL` pointing to the intended database and `PROVISION_SYSTEM_OWNER_EMAIL` and `PROVISION_SYSTEM_OWNER_PASSWORD` supplied through the execution environment or secret manager. The script does not read `.env.admin` or use bootstrap credentials. Never enable `BOOTSTRAP_ADMIN_ENABLED` in production.
+
+Use a password of 16–128 characters containing uppercase, lowercase, a digit, and a symbol. Provisioning creates or promotes the specified account, marks it active and email verified, and assigns the SYSTEM_OWNER role atomically. A different existing owner causes refusal. Repeating for the same owner preserves its password and MFA configuration. Existing-account promotion replaces its password and revokes previous sessions and recovery links; it does not reset MFA or alter encrypted vault data.
+
+The script creates no demo data and does not seed the permission catalog or change role permissions. Existing authorization and production MFA requirements still apply. Remove the provisioning credentials from the execution environment after completion. This command must be run explicitly; it is not part of application startup or deployment.
+
+To reset an existing owner's password explicitly, supply `PROVISION_SYSTEM_OWNER_RESET_PASSWORD=true` along with the dedicated provisioning email and new password, then run `npm run admin:provision`. Reset mode follows the normal password-reset minimum of 12 characters, uses the normal Argon2id helper, and atomically revokes all login sessions for that user. It preserves roles, MFA, and other account data while ensuring the account is active and email verified. It refuses nonexistent or non-owner accounts and prints `SYSTEM_OWNER: password-reset` on success. Without the exact value `true`, an existing owner keeps its password and the command prints `SYSTEM_OWNER: already-owner`. Remove the reset flag and credentials from the environment afterward.

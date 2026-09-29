@@ -58,35 +58,37 @@ async function bootstrap() {
   );
 
   // OpenAPI / Swagger Documentation
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('SOPET Momentum API')
-    .setDescription(
-      'REST API specification for SOPET Momentum — Personal execution and developmental progress system by ACoS EduTech and Consultancy.',
-    )
-    .setVersion('1.0.0')
-    .addTag('Authentication', 'Argon2id authentication, session issuance and token rotation')
-    .addTag('Sessions', 'Device and session inspection and revocation')
-    .addTag('Goals', 'Goal management with ownership isolation')
-    .addTag('Actions', 'Action pipeline and Next Meaningful Action (NMA) designation')
-    .addTag('Action Readiness', '5-Question diagnostic readiness protocol')
-    .addTag('Barriers', 'Action-Centric Identification Framework (ACIF) diagnosis')
-    .addTag('Interventions', 'Approved methodology interventions')
-    .addTag('Minimum Meaningful Action (MMA)', 'Momentum-restoring micro-steps')
-    .addTag('Interruption & Restart', '5-Question Restart Protocol')
-    .addTag('Weekly Review & Lessons', '5-Question review, lesson extraction and NMA anchoring')
-    .addTag('KPIs & Progress', 'The 6 core momentum metrics')
-    .addTag('AI Methodology Engine', 'Governed AI assistance with Gemini 2.5 Flash')
-    .addTag('Privacy & Encryption', 'Client-side key metadata registration')
-    .addTag('Administration & Security', 'Audit logs and system health')
-    .build();
+  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('SOPET Momentum API')
+      .setDescription(
+        'REST API specification for SOPET Momentum — Personal execution and developmental progress system by ACoS EduTech and Consultancy.',
+      )
+      .setVersion('1.0.0')
+      .addTag('Authentication', 'Argon2id authentication, session issuance and token rotation')
+      .addTag('Sessions', 'Device and session inspection and revocation')
+      .addTag('Goals', 'Goal management with ownership isolation')
+      .addTag('Actions', 'Action pipeline and Next Meaningful Action (NMA) designation')
+      .addTag('Action Readiness', '5-Question diagnostic readiness protocol')
+      .addTag('Barriers', 'Action-Centric Identification Framework (ACIF) diagnosis')
+      .addTag('Interventions', 'Approved methodology interventions')
+      .addTag('Minimum Meaningful Action (MMA)', 'Momentum-restoring micro-steps')
+      .addTag('Interruption & Restart', '5-Question Restart Protocol')
+      .addTag('Weekly Review & Lessons', '5-Question review, lesson extraction and NMA anchoring')
+      .addTag('KPIs & Progress', 'The 6 core momentum metrics')
+      .addTag('AI Methodology Engine', 'Governed AI assistance with Gemini 2.5 Flash')
+      .addTag('Privacy & Encryption', 'Client-side key metadata registration')
+      .addTag('Administration & Security', 'Audit logs and system health')
+      .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') SwaggerModule.setup('api/docs', app, document);
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = parseInt(process.env.PORT || '4000', 10);
   await app.listen(port);
   logger.log(`SOPET Momentum API server listening on http://localhost:${port}/api/v1`);
-  logger.log(`OpenAPI Swagger documentation available at http://localhost:${port}/api/docs`);
+  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') logger.log(`OpenAPI Swagger documentation available at http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

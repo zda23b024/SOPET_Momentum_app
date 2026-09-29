@@ -19,14 +19,15 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx prisma/seed.ts",
-    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
-    "prisma:studio": "prisma studio"
-    ,"production:check": "tsx scripts/production-check.ts"
-    ,"audit:verify": "tsx scripts/verify-audit-chain.ts"
-    ,"audit:checkpoint:init": "tsx scripts/init-audit-checkpoint.ts"
-    ,"audit:reanchor": "tsx scripts/reanchor-audit-history.ts"
-    ,"deletion:process-due": "tsx scripts/process-due-account-deletions.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:studio": "prisma studio",
+    "production:check": "ts-node scripts/production-check.ts",
+    "audit:verify": "ts-node scripts/verify-audit-chain.ts",
+    "audit:checkpoint:init": "ts-node scripts/init-audit-checkpoint.ts",
+    "deletion:process-due": "ts-node scripts/process-due-account-deletions.ts",
+    "admin:provision": "ts-node scripts/provision-system-owner.ts",
+    "admin:bootstrap": "ts-node scripts/bootstrap-admin.ts",
+    "audit:reanchor": "ts-node scripts/reanchor-audit-history.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -69,6 +70,9 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.8.2"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.1"
   },
   "jest": {
     "moduleFileExtensions": [

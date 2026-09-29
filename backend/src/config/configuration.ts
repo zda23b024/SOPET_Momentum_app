@@ -13,7 +13,7 @@ export default () => ({
   },
   cookie: {
     secure: process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production',
-    sameSite: (process.env.COOKIE_SAME_SITE || 'lax') as 'lax' | 'strict' | 'none',
+    sameSite: (process.env.COOKIE_SAME_SITE || 'lax').toLowerCase() as 'lax' | 'strict' | 'none',
   },
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || '',
